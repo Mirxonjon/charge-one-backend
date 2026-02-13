@@ -1,0 +1,107 @@
+stages:
+  - build
+  - deploy
+
+variables:
+  DOCKER_DRIVER: overlay2
+  DOCKER_HOST: "unix:///var/run/docker.sock"
+
+# ---------- BUILD DEV ----------
+# build-dev:
+#   stage: build
+#   image: docker/compose:1.29.2
+#   tags:
+#     - crm-dev
+#   before_script:
+#     - echo "APP_PORT=4009" > .env
+#   script:
+#     - docker-compose -f docker-compose.yml build
+#   rules:
+#     - if: '$CI_COMMIT_BRANCH == "dev"'
+#       when: always
+#     - when: never
+
+# ---------- BUILD MAIN ----------
+build-main:
+  stage: build
+  image: docker/compose:1.29.2
+  tags:
+    - crm-dev
+  before_script:
+    - echo "APP_PORT=4009" > .env
+  script:
+    - docker-compose -f docker-compose.yml build
+  rules:
+    - if: '$CI_COMMIT_BRANCH == "main"'
+      when: always
+    - when: never
+
+# ---------- DEPLOY DEV ----------
+# deploy-dev:
+#   stage: deploy
+#   image: docker/compose:1.29.2
+#   tags:
+#     - crm-dev
+#   before_script:
+#     - echo "APP_PORT=4009" > .env
+#     - echo "NODE_ENV=development" >> .env
+#     - echo "FRONTEND_BASE_URL=https://crm-back.ccenter.uz/" >> .env
+#     - echo "TELEGRAM_BOT_URL=https://amp-tg.ccenter.uz" >> .env
+#     - echo "TELEGRAM_BOT_TOKEN=$TELEGRAM_BOT_TOKEN" >> .env
+#     - echo "TELEGRAM_BOT_API_TOKEN=7823896099:AAHjIzq__HpSqiIltwjErXOylGeEJ54UYsc" >> .env
+#     - echo "PROXY_HOST=10.145.20.5" >> .env
+#     - echo "PROXY_PORT=4014" >> .env
+#     - echo "PROXY_TOKEN=$PROXY_TOKEN" >> .env
+#     - echo "DATABASE_URL=mongodb://172.17.0.1:27017/crm" >> .env
+#     - echo "JWT_SECRET=$JWT_SECRET" >> .env
+#     - echo "MINIO_ENDPOINT=10.145.20.8" >> .env
+#     - echo "MINIO_PORT=9000" >> .env
+#     - echo "MINIO_ACCESS_KEY=$MINIO_ACCESS_KEY" >> .env
+#     - echo "MINIO_SECRET_KEY=$MINIO_SECRET_KEY" >> .env
+#     - echo "MINIO_USE_SSL=false" >> .env
+#     - echo "MINIO_URL=https://minio.ccenter.uz" >> .env
+#     - echo "MINIO_PUBLIC_BUCKET=crm" >> .env
+#     - echo "RAG_API_TOKEN=$RAG_API_TOKEN" >> .env
+#     - echo "RAG_API_URL=http://10.145.20.5:4015" >> .env
+#   script:
+#     - docker-compose -f docker-compose.yml down
+#     - docker-compose -f docker-compose.yml up -d
+#     - docker image prune -f
+#   rules:
+#     - if: '$CI_COMMIT_BRANCH == "dev"'
+#       when: always
+#     - when: never
+
+# ---------- DEPLOY MAIN ----------
+deploy-main:
+  stage: deploy
+  image: docker/compose:1.29.2
+  tags:
+    - crm-dev
+  before_script:
+    - echo "APP_PORT=4009" > .env
+    - echo "NODE_ENV=development" >> .env
+    - echo "FRONTEND_BASE_URL=https://amp.ccenter.uz/" >> .env
+    - echo "TELEGRAM_BOT_URL=https://amp-tg.ccenter.uz" >> .env
+    - echo "TELEGRAM_BOT_TOKEN=$TELEGRAM_BOT_TOKEN" >> .env
+    - echo "TELEGRAM_BOT_API_TOKEN=7823896099:AAHjIzq__HpSqiIltwjErXOylGeEJ54UYsc" >> .env
+    - echo "PROXY_HOST=10.145.20.5" >> .env
+    - echo "PROXY_PORT=4014" >> .env
+    - echo "PROXY_TOKEN=$PROXY_TOKEN" >> .env
+    - echo "DATABASE_URL=mongodb://172.17.0.1:27017/crm" >> .env
+    - echo "JWT_SECRET=$JWT_SECRET" >> .env
+    - echo "MINIO_ENDPOINT=10.145.20.8" >> .env
+    - echo "MINIO_PORT=9000" >> .env
+    - echo "MINIO_ACCESS_KEY=$MINIO_ACCESS_KEY" >> .env
+    - echo "MINIO_SECRET_KEY=$MINIO_SECRET_KEY" >> .env
+    - echo "MINIO_USE_SSL=false" >> .env
+    - echo "MINIO_URL=https://minio.ccenter.uz" >> .env
+    - echo "MINIO_PUBLIC_BUCKET=crm" >> .env
+  script:
+    - docker-compose -f docker-compose.yml down
+    - docker-compose -f docker-compose.yml up -d
+    - docker image prune -f
+  rules:
+    - if: '$CI_COMMIT_BRANCH == "main"'
+      when: always
+    - when: never

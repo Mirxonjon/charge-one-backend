@@ -1,0 +1,58 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+
+model Role {
+  id    Int    @id @default(autoincrement())
+  name  String @unique
+  users User[]
+}
+
+model User {
+  id          Int       @id @default(autoincrement())
+  phone       String    @unique
+  password    String?
+  isVerified  Boolean   @default(false)
+  roleId      Int
+  role        Role      @relation(fields: [roleId], references: [id])
+  sessions    Session[]
+  otpCodes    OtpCode[]
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+}
+
+model OtpCode {
+  id        Int       @id @default(autoincrement())
+  code      String
+  phone     String
+  userId    Int?
+  user      User?     @relation(fields: [userId], references: [id])
+  expiresAt DateTime
+  isUsed    Boolean   @default(false)
+  createdAt DateTime  @default(now())
+
+  @@index([phone])
+  @@index([userId])
+}
+
+model Session {
+  id           Int       @id @default(autoincrement())
+  userId       Int
+  user         User      @relation(fields: [userId], references: [id])
+  refreshToken String    // store hashed
+  ipAddress    String?
+  userAgent    String?
+  expiresAt    DateTime
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  @@index([userId])
+}
+
+
