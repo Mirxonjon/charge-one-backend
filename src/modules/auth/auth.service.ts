@@ -51,7 +51,7 @@ export class AuthService {
       // swallow provider error per requirements
     }
 
-    return { success: true, message: 'OTP sent (or simulated)' };
+    return { success: true, message: 'OTP sent (or simulated)', code };
   }
 
   async verifyOtp(dto: VerifyOtpDto, device: DeviceInfo) {
