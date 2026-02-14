@@ -15,29 +15,54 @@ model Role {
 }
 
 model User {
-  id          Int       @id @default(autoincrement())
-  phone       String    @unique
-  password    String?
-  isVerified  Boolean   @default(false)
-  roleId      Int
-  role        Role      @relation(fields: [roleId], references: [id])
-  sessions    Session[]
-  otpCodes    OtpCode[]
-  createdAt   DateTime  @default(now())
-  updatedAt   DateTime  @updatedAt
+  id             Int       @id @default(autoincrement())
+  phone          String    @unique
+  password       String?
+  isVerified     Boolean   @default(false)
+  roleId         Int
+  role           Role      @relation(fields: [roleId], references: [id])
+  sessions       Session[]
+  otpCodes       OtpCode[]
+  resetTokens    PasswordResetToken[]
+  registrationTokens RegistrationToken[]
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
 }
 
 model OtpCode {
-  id        Int       @id @default(autoincrement())
-  code      String
-  phone     String
-  userId    Int?
-  user      User?     @relation(fields: [userId], references: [id])
-  expiresAt DateTime
-  isUsed    Boolean   @default(false)
-  createdAt DateTime  @default(now())
+  id            Int       @id @default(autoincrement())
+  code          String
+  phone         String
+  userId        Int?
+  user          User?     @relation(fields: [userId], references: [id])
+  expiresAt     DateTime
+  isUsed        Boolean   @default(false)
+  attemptsCount Int       @default(0)
+  createdAt     DateTime  @default(now())
 
   @@index([phone])
+  @@index([userId])
+}
+
+model RegistrationToken {
+  id        Int      @id @default(autoincrement())
+  userId    Int
+  user      User     @relation(fields: [userId], references: [id])
+  token     String   // hashed
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+
+  @@index([userId])
+}
+
+model PasswordResetToken {
+  id        Int      @id @default(autoincrement())
+  userId    Int
+  user      User     @relation(fields: [userId], references: [id])
+  token     String   // hashed
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+
   @@index([userId])
 }
 

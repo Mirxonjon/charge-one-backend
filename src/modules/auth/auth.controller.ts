@@ -1,17 +1,36 @@
-import { Body, Controller, HttpCode, HttpStatus, Post, Req, UseGuards } from '@nestjs/common';
-import { ApiBearerAuth, ApiBody, ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
+import {
+  Body,
+  Controller,
+  HttpCode,
+  HttpStatus,
+  Post,
+  Req,
+  UseGuards,
+} from '@nestjs/common';
+import {
+  ApiBearerAuth,
+  ApiBody,
+  ApiOperation,
+  ApiResponse,
+  ApiTags,
+} from '@nestjs/swagger';
 import { AuthService } from './auth.service';
-import { RegisterDto } from '@/types/auth/register.dto';
+import { SendOtpDto } from '@/types/auth/send-otp.dto';
 import { VerifyOtpDto } from '@/types/auth/verify-otp.dto';
-import { LoginWithOtpDto, LoginWithPasswordDto } from '@/types/auth/login.dto';
+import { LoginWithPasswordDto } from '@/types/auth/login.dto';
+import { RequestOtpDto } from '@/types/auth/request-otp.dto';
+import { VerifyLoginOtpDto } from '@/types/auth/verify-login-otp.dto';
 import { RefreshDto } from '@/types/auth/refresh.dto';
 import { ForgotPasswordDto } from '@/types/auth/forgot-password.dto';
-import { ResetPasswordDto } from '@/types/auth/reset-password.dto';
+import { VerifyResetOtpDto } from '@/types/auth/verify-reset-otp.dto';
+import { SetNewPasswordDto } from '@/types/auth/set-new-password.dto';
 import { Public } from '@/common/decorators/public.decorator';
 import { Request } from 'express';
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
 import { Roles } from './decorators/roles.decorator';
 import { RolesGuard } from './guards/roles.guard';
+import { RegisterDto } from '@/types/auth/register.dto';
+import { SetPasswordDto } from '@/types/auth/set-password.dto';
 
 @ApiTags('Auth')
 @Controller('auth')
@@ -30,23 +49,37 @@ export class AuthController {
   @Public()
   @Post('verify-otp')
   @HttpCode(HttpStatus.OK)
-  @ApiOperation({ summary: 'Verify OTP and complete registration/login' })
+  @ApiOperation({ summary: 'STEP 2 — Verify OTP and issue registrationToken' })
   @ApiBody({ type: VerifyOtpDto })
-  verifyOtp(@Body() dto: VerifyOtpDto, @Req() req: Request) {
-    const ip = req.ip;
-    const userAgent = req.headers['user-agent'];
-    return this.authService.verifyOtp(dto, { ip, userAgent: userAgent as string });
+  @ApiResponse({
+    status: 200,
+    schema: { example: { registrationToken: 'a3bf...' } },
+  })
+  verifyOtp(@Body() dto: VerifyOtpDto) {
+    return this.authService.verifyOtpForRegistration(dto);
+  }
+
+  // LOGIN OTP FLOW
+  @Public()
+  @Post('login/request-otp')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Login — STEP 1: Request OTP (send SMS)' })
+  @ApiBody({ type: RequestOtpDto })
+  @ApiResponse({ status: 200, schema: { example: { message: 'OTP sent' } } })
+  requestLoginOtp(@Body() dto: RequestOtpDto) {
+    return this.authService.requestLoginOtp(dto);
   }
 
   @Public()
-  @Post('login/otp')
+  @Post('login/verify-otp')
   @HttpCode(HttpStatus.OK)
-  @ApiOperation({ summary: 'Login using phone + OTP' })
-  @ApiBody({ type: LoginWithOtpDto })
-  loginWithOtp(@Body() dto: LoginWithOtpDto, @Req() req: Request) {
+  @ApiOperation({ summary: 'Login — STEP 2: Verify OTP and login' })
+  @ApiBody({ type: VerifyLoginOtpDto })
+  @ApiResponse({ status: 200, schema: { example: { accessToken: 'eyJ...', refreshToken: 'eyJ...' } } })
+  verifyLoginOtp(@Body() dto: VerifyLoginOtpDto, @Req() req: Request) {
     const ip = req.ip;
     const userAgent = req.headers['user-agent'];
-    return this.authService.loginWithOtp(dto, { ip, userAgent: userAgent as string });
+    return this.authService.verifyLoginOtp(dto, { ip, userAgent: userAgent as string });
   }
 
   @Public()
@@ -57,7 +90,10 @@ export class AuthController {
   loginWithPassword(@Body() dto: LoginWithPasswordDto, @Req() req: Request) {
     const ip = req.ip;
     const userAgent = req.headers['user-agent'];
-    return this.authService.loginWithPassword(dto, { ip, userAgent: userAgent as string });
+    return this.authService.loginWithPassword(dto, {
+      ip,
+      userAgent: userAgent as string,
+    });
   }
 
   @Public()
@@ -68,35 +104,99 @@ export class AuthController {
   refresh(@Body() dto: RefreshDto, @Req() req: Request) {
     const ip = req.ip;
     const userAgent = req.headers['user-agent'];
-    return this.authService.refresh(dto.refreshToken, { ip, userAgent: userAgent as string });
+    return this.authService.refresh(dto.refreshToken, {
+      ip,
+      userAgent: userAgent as string,
+    });
   }
 
   @Post('logout')
   @UseGuards(JwtAuthGuard)
   @HttpCode(HttpStatus.OK)
   @ApiBearerAuth()
-  @ApiOperation({ summary: 'Logout and revoke refresh token (all sessions for current device)' })
+  @ApiOperation({
+    summary:
+      'Logout and revoke refresh token (all sessions for current device)',
+  })
   logout(@Req() req: any) {
     const userId = req.user.sub;
     const userAgent = req.headers['user-agent'];
     const ip = req.ip;
-    return this.authService.logout(userId, { ip, userAgent: userAgent as string });
+    return this.authService.logout(userId, {
+      ip,
+      userAgent: userAgent as string,
+    });
   }
 
   @Public()
   @Post('forgot-password')
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Send OTP for password reset' })
+  @ApiBody({ type: ForgotPasswordDto })
+  @ApiResponse({ status: 200, schema: { example: { success: true } } })
   forgotPassword(@Body() dto: ForgotPasswordDto) {
     return this.authService.forgotPassword(dto);
   }
 
   @Public()
+  @Post('verify-reset-otp')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'STEP 1 — Verify reset OTP and issue resetToken' })
+  @ApiBody({ type: VerifyResetOtpDto })
+  @ApiResponse({
+    status: 200,
+    schema: { example: { resetToken: '1f2e3d4c...' } },
+  })
+  verifyResetOtp(@Body() dto: VerifyResetOtpDto) {
+    return this.authService.verifyResetOtp(dto);
+  }
+
+  @Public()
+  @Post('set-password')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'STEP 3 — Set password and login (issue tokens)' })
+  @ApiBody({ type: SetPasswordDto })
+  @ApiResponse({
+    status: 200,
+    schema: {
+      example: {
+        accessToken: 'eyJ...',
+        refreshToken: 'eyJ...',
+        expiresIn: 900,
+      },
+    },
+  })
+  setPassword(@Body() dto: SetPasswordDto, @Req() req: Request) {
+    const ip = req.ip;
+    const userAgent = req.headers['user-agent'];
+    return this.authService.setPasswordAndLogin(dto, {
+      ip,
+      userAgent: userAgent as string,
+    });
+  }
+
+  @Public()
   @Post('reset-password')
   @HttpCode(HttpStatus.OK)
-  @ApiOperation({ summary: 'Verify OTP and reset password' })
-  resetPassword(@Body() dto: ResetPasswordDto) {
-    return this.authService.resetPassword(dto);
+  @ApiOperation({ summary: 'STEP 3 — Set password and login (issue tokens)' })
+  @ApiBody({ type: SetNewPasswordDto })
+  @ApiResponse({
+    status: 200,
+    schema: {
+      example: {
+        accessToken: 'eyJ...',
+        refreshToken: 'eyJ...',
+        expiresIn: 900,
+      },
+    },
+  })
+  resetPassword(@Body() dto: SetNewPasswordDto, @Req() req: Request) {
+    const ip = req.ip;
+    const userAgent = req.headers['user-agent'];
+    return this.authService.resetPasswordAndLogin(dto, {
+      ip,
+      userAgent: userAgent as string,
+    });
   }
 
   @Post('admin-only')
