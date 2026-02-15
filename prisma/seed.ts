@@ -1,8 +1,34 @@
 import { PrismaClient, ConnectorStatus } from '@prisma/client';
+import * as bcrypt from 'bcryptjs';
 
 const prisma = new PrismaClient();
 
 async function main() {
+  // Ensure roles
+  const adminRole = await prisma.role.upsert({ where: { name: 'ADMIN' }, update: {}, create: { name: 'ADMIN' } });
+  const userRole = await prisma.role.upsert({ where: { name: 'USER' }, update: {}, create: { name: 'USER' } });
+
+  // Default admin
+  const defaultAdminPhone = '+998900000001';
+  const defaultAdminPassword = 'Admin123!';
+  const existingAdmin = await prisma.user.findUnique({ where: { phone: defaultAdminPhone } });
+  if (!existingAdmin) {
+    const hash = await bcrypt.hash(defaultAdminPassword, 12);
+    await prisma.user.create({
+      data: {
+        phone: defaultAdminPhone,
+        password: hash,
+        isVerified: true,
+        roleId: adminRole.id,
+        firstName: 'Default',
+        lastName: 'Admin',
+      },
+    });
+    console.log('Default admin created');
+  } else {
+    console.log('Default admin already exists');
+  }
+
   // Seed two operators
   const op1 = await prisma.operator.upsert({
     where: { id: 1 },

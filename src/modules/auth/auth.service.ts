@@ -20,6 +20,8 @@ import { OtpService } from './otp.service';
 import { SmsService } from './sms.service';
 import { RegisterDto } from '@/types/auth/register.dto';
 import { SetPasswordDto } from '@/types/auth/set-password.dto';
+import { AdminCreateDto } from '@/types/auth/admin-create.dto';
+import { AdminLoginDto } from '@/types/auth/admin-login.dto';
 
 const ACCESS_EXPIRES_SECONDS = (() => {
   const v = process.env.ACCESS_TOKEN_TTL || '15m';
@@ -30,7 +32,7 @@ const ACCESS_EXPIRES_SECONDS = (() => {
   return isNaN(n) ? 15 * 60 : n; // seconds
 })();
 const REFRESH_EXPIRES_DAYS = parseInt(
-  process.env.REFRESH_TOKEN_TTL_DAYS || '14'
+  process.env.REFRESH_TOKEN_TTL_DAYS || '7'
 );
 
 @Injectable()
@@ -134,14 +136,36 @@ export class AuthService {
     return this.issueTokensAndPersistSession(user.id, device);
   }
 
+  private loginRateMap = new Map<string, number[]>();
+  private assertLoginRateLimit(key: string, limit = 5, windowMs = 5 * 60 * 1000) {
+    const now = Date.now();
+    const arr = this.loginRateMap.get(key) || [];
+    const recent = arr.filter((t) => now - t < windowMs);
+    if (recent.length >= limit) {
+      throw new UnauthorizedException('Too many attempts, please try later');
+    }
+    recent.push(now);
+    this.loginRateMap.set(key, recent);
+  }
+
   async loginWithPassword(dto: LoginWithPasswordDto, device: DeviceInfo) {
+    // basic rate limit per phone+ip to mitigate brute force
+    const rateKey = `${dto.phone}:${device.ip}`;
+    this.assertLoginRateLimit(rateKey);
+
     const user = await this.prisma.user.findUnique({
       where: { phone: dto.phone },
     });
-    if (!user || !user.password)
+    if (!user) {
+      throw new (await import('@nestjs/common')).NotFoundException('User not found');
+    }
+    if (!user.password) {
       throw new UnauthorizedException('Invalid credentials');
+    }
 
     const match = await bcrypt.compare(dto.password, user.password);
+    console.log(match, dto.password, user.password,);
+    
     if (!match) throw new UnauthorizedException('Invalid credentials');
 
     return this.issueTokensAndPersistSession(user.id, device);
@@ -352,4 +376,40 @@ export class AuthService {
     if (!role) role = await this.prisma.role.create({ data: { name } });
     return role;
   }
+
+  async createAdmin(dto: AdminCreateDto) {
+    const existing = await this.prisma.user.findUnique({ where: { phone: dto.phone } });
+    if (existing) throw new BadRequestException('User already exists');
+
+    const role = await this.ensureRole('ADMIN');
+    const hash = await bcrypt.hash(dto.password, 12);
+    const user = await this.prisma.user.create({
+      data: {
+        phone: dto.phone,
+        password: hash,
+        firstName: dto.firstName,
+        lastName: dto.lastName,
+        isVerified: true,
+        roleId: role.id,
+      },
+    });
+    return { id: user.id, phone: user.phone };
+  }
+
+  async adminLogin(dto: AdminLoginDto, device: DeviceInfo) {
+    const rateKey = `${dto.phone}:${device.ip}`;
+    this.assertLoginRateLimit(rateKey);
+    const user = await this.prisma.user.findUnique({ where: { phone: dto.phone }, include: { role: true } });
+    if (!user) {
+      throw new (await import('@nestjs/common')).NotFoundException('User not found');
+    }
+    if (!user.password) throw new UnauthorizedException('Invalid credentials');
+    if (!user.role || user.role.name !== 'ADMIN') throw new UnauthorizedException('Invalid credentials');
+
+    const ok = await bcrypt.compare(dto.password, user.password);
+    if (!ok) throw new UnauthorizedException('Invalid credentials');
+
+    return this.issueTokensAndPersistSession(user.id, device);
+  }
 }
+

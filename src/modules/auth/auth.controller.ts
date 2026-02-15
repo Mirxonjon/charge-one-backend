@@ -199,12 +199,4 @@ export class AuthController {
     });
   }
 
-  @Post('admin-only')
-  @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles('ADMIN')
-  @ApiBearerAuth()
-  @ApiOperation({ summary: 'Admin-only example route' })
-  adminOnly() {
-    return { message: 'You are admin' };
-  }
 }

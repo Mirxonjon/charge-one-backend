@@ -40,7 +40,7 @@ async function bootstrap() {
 
   /* SWAGGER */
   const swaggerConfig = new DocumentBuilder()
-    .setTitle('Logistic Backend API')
+    .setTitle('Charge one Backend Api')
     .setDescription('REST API documentation for Logistic Backend')
     .setVersion('1.0')
     .addBearerAuth({ type: 'http', scheme: 'bearer', bearerFormat: 'JWT' })

@@ -23,6 +23,9 @@ import { ConnectorStatusLogModule } from './modules/connector-status-log/connect
 import { StationPricingModule } from './modules/station-pricing/station-pricing.module';
 import { ChargingSessionModule } from './modules/charging-session/charging-session.module';
 import { OperatorPayoutModule } from './modules/operator-payout/operator-payout.module';
+import { WalletModule } from './modules/wallet/wallet.module';
+import { WalletTransactionModule } from './modules/wallet-transaction/wallet-transaction.module';
+import { PaymentModule } from './modules/payment/payment.module';
 
 @Module({
   imports: [
@@ -52,6 +55,9 @@ import { OperatorPayoutModule } from './modules/operator-payout/operator-payout.
     StationPricingModule,
     ChargingSessionModule,
     OperatorPayoutModule,
+    WalletModule,
+    WalletTransactionModule,
+    PaymentModule,
   ],
   providers: [
     {

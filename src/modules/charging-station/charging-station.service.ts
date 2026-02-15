@@ -13,7 +13,19 @@ export class ChargingStationService {
   }
 
   async findAll(query: FilterChargingStationDto) {
-    const { page = 1, limit = 10, sortBy = 'createdAt', sortOrder = 'desc', operatorId, isActive, from, to, lat, lng, radiusKm } = query;
+    const {
+      page = 1,
+      limit = 10,
+      sortBy = 'createdAt',
+      sortOrder = 'desc',
+      operatorId,
+      isActive,
+      from,
+      to,
+      lat,
+      lng,
+      radiusKm,
+    } = query;
 
     const where: any = {};
     if (operatorId) where.operatorId = operatorId;
@@ -39,7 +51,11 @@ export class ChargingStationService {
       stations = stations.filter((s) => {
         const dLat = toRad(s.latitude - lat);
         const dLng = toRad(s.longitude - lng);
-        const a = Math.sin(dLat / 2) ** 2 + Math.cos(toRad(lat)) * Math.cos(toRad(s.latitude)) * Math.sin(dLng / 2) ** 2;
+        const a =
+          Math.sin(dLat / 2) ** 2 +
+          Math.cos(toRad(lat)) *
+            Math.cos(toRad(s.latitude)) *
+            Math.sin(dLng / 2) ** 2;
         const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
         const d = R * c;
         return d <= radiusKm;
@@ -51,7 +67,9 @@ export class ChargingStationService {
   }
 
   async findOne(id: number) {
-    const item = await this.prisma.chargingStation.findUnique({ where: { id } });
+    const item = await this.prisma.chargingStation.findUnique({
+      where: { id },
+    });
     if (!item) throw new NotFoundException('Charging station not found');
     return item;
   }

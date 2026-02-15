@@ -7,6 +7,24 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+enum TransactionType {
+  DEPOSIT
+  CHARGE
+  REFUND
+}
+
+enum TransactionStatus {
+  SUCCESS
+  PENDING
+  FAILED
+}
+
+enum PaymentMethod {
+  CLICK
+  PAYME
+  CARD
+}
+
 
 model Role {
   id    Int    @id @default(autoincrement())
@@ -18,6 +36,8 @@ model User {
   id             Int       @id @default(autoincrement())
   phone          String    @unique
   password       String?
+  firstName      String?
+  lastName       String?
   isVerified     Boolean   @default(false)
   roleId         Int
   role           Role      @relation(fields: [roleId], references: [id])
@@ -25,6 +45,8 @@ model User {
   otpCodes       OtpCode[]
   userCars       UserCar[]
   Cars           Car[]
+  Wallet         Wallet[]
+
   ChargingSession  ChargingSession[]
   resetTokens    PasswordResetToken[]
   registrationTokens RegistrationToken[]
@@ -235,11 +257,53 @@ model ChargingSession {
   createdAt   DateTime      @default(now())
   updatedAt   DateTime      @updatedAt
 
+  WalletTransaction WalletTransaction[]
+  Payment           Payment[]  
   @@index([userId])
   @@index([connectorId])
 }
 
-model OperatorPayout {
+
+
+model Wallet {
+  id        Int      @id @default(autoincrement())
+  userId    Int      @unique
+  user      User     @relation(fields: [userId], references: [id])
+  balance   Decimal  @default(0)
+  currency  String   @default("UZS")
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  transactions WalletTransaction[]
+}
+
+model WalletTransaction {
+  id        Int               @id @default(autoincrement())
+  walletId  Int
+  wallet    Wallet            @relation(fields: [walletId], references: [id])
+  type      TransactionType
+  amount    Decimal
+  provider  String?
+  sessionId Int?
+  session   ChargingSession?  @relation(fields: [sessionId], references: [id])
+  status    TransactionStatus @default(SUCCESS)
+  createdAt DateTime          @default(now())
+  updatedAt DateTime          @updatedAt
+
+  @@index([walletId])
+  @@index([sessionId])
+}
+
+model Payment {
+  id        Int           @id @default(autoincrement())
+  sessionId Int           @unique
+  session   ChargingSession @relation(fields: [sessionId], references: [id])
+  amount    Decimal
+  method    PaymentMethod
+  createdAt DateTime      @default(now())
+  updatedAt DateTime      @updatedAt
+}
+
+model OperatorPayout { 
   id         Int          @id @default(autoincrement())
   operatorId Int
   operator   Operator     @relation(fields: [operatorId], references: [id])

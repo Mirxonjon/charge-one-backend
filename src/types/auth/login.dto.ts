@@ -22,6 +22,7 @@ export class LoginWithPasswordDto {
   @ApiProperty({ example: 'StrongP@ssw0rd' })
   @IsNotEmpty()
   @IsString()
+  @Length(8, 100)
   password: string;
 
   @ApiPropertyOptional({ example: 'Pixel 8' })
