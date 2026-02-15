@@ -13,8 +13,16 @@ import { PrismaModule } from './modules/prisma/prisma.module';
 import { AllExceptionFilter } from './common/filter/all-exceptions.filter';
 
 import { TelegrafModule } from 'nestjs-telegraf';
+import { VehicleModule } from './modules/vehicle/vehicle.module';
 import { AuthModule } from './modules/auth/auth.module';
 import { UsersModule } from './modules/users/users.module';
+import { OperatorModule } from './modules/operator/operator.module';
+import { ChargingStationModule } from './modules/charging-station/charging-station.module';
+import { ConnectorModule } from './modules/connector/connector.module';
+import { ConnectorStatusLogModule } from './modules/connector-status-log/connector-status-log.module';
+import { StationPricingModule } from './modules/station-pricing/station-pricing.module';
+import { ChargingSessionModule } from './modules/charging-session/charging-session.module';
+import { OperatorPayoutModule } from './modules/operator-payout/operator-payout.module';
 
 @Module({
   imports: [
@@ -34,8 +42,16 @@ import { UsersModule } from './modules/users/users.module';
     // }),
     PrismaModule,
     CronJobModule,
+    VehicleModule,
     AuthModule,
     UsersModule,
+    OperatorModule,
+    ChargingStationModule,
+    ConnectorModule,
+    ConnectorStatusLogModule,
+    StationPricingModule,
+    ChargingSessionModule,
+    OperatorPayoutModule,
   ],
   providers: [
     {

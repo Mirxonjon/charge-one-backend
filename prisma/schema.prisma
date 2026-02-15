@@ -23,6 +23,9 @@ model User {
   role           Role      @relation(fields: [roleId], references: [id])
   sessions       Session[]
   otpCodes       OtpCode[]
+  userCars       UserCar[]
+  Cars           Car[]
+  ChargingSession  ChargingSession[]
   resetTokens    PasswordResetToken[]
   registrationTokens RegistrationToken[]
   createdAt      DateTime  @default(now())
@@ -66,6 +69,52 @@ model PasswordResetToken {
   @@index([userId])
 }
 
+enum CarCreatedByType {
+  ADMIN
+  USER
+  SYSTEM
+}
+
+model Car {
+  id           Int       @id @default(autoincrement())
+  createdById  Int?
+  createdBy    User?     @relation(fields: [createdById], references: [id])
+  createdByType CarCreatedByType @default(SYSTEM)
+
+  brand        String
+  model        String
+  year         Int?
+  vin          String?   @unique
+  batterySize  Float?
+  rangeKm      Int?
+  imageUrl     String?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+  userCars     UserCar[]
+
+  @@index([brand])
+  @@index([model])
+  @@index([year])
+  @@index([createdByType])
+  @@index([createdById])
+}
+
+model UserCar {
+  id          Int      @id @default(autoincrement())
+  userId      Int
+  carId       Int
+  plateNumber String?  @unique
+  color       String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id])
+  car  Car  @relation(fields: [carId], references: [id])
+
+  @@index([userId])
+  @@index([carId])
+}
+
 model Session {
   id           Int       @id @default(autoincrement())
   userId       Int
@@ -80,4 +129,129 @@ model Session {
   @@index([userId])
 }
 
+enum ConnectorStatus {
+  AVAILABLE
+  OCCUPIED
+  OUT_OF_SERVICE
+}
+
+enum SessionStatus {
+  ACTIVE
+  COMPLETED
+  CANCELLED
+}
+
+enum PayoutStatus {
+  PENDING
+  PROCESSING
+  PAID
+  FAILED
+}
+
+model Operator {
+  id         Int                @id @default(autoincrement())
+  title      String
+  contact    String?
+  bankName   String?
+  bankAccount String?
+  bankMfo    String?
+  stations   ChargingStation[]
+  payouts    OperatorPayout[]
+  createdAt  DateTime           @default(now())
+  updatedAt  DateTime           @updatedAt
+}
+
+model ChargingStation {
+  id           Int          @id @default(autoincrement())
+  operatorId   Int
+  operator     Operator     @relation(fields: [operatorId], references: [id])
+  title        String
+  address      String?
+  latitude     Float
+  longitude    Float
+  isActive     Boolean      @default(true)
+  workingHours String?
+  connectors   Connector[]
+  pricing      StationPricing[]
+  createdAt    DateTime     @default(now())
+  updatedAt    DateTime     @updatedAt
+
+  @@index([operatorId])
+}
+
+model Connector {
+  id           Int               @id @default(autoincrement())
+  stationId    Int
+  station      ChargingStation   @relation(fields: [stationId], references: [id])
+  type         String
+  powerKw      Float
+  status       ConnectorStatus   @default(AVAILABLE)
+  pricePerKwh  Float?
+  sessions     ChargingSession[]
+  statusLogs   ConnectorStatusLog[]
+  createdAt    DateTime          @default(now())
+  updatedAt    DateTime          @updatedAt
+
+  @@index([stationId])
+}
+
+model ConnectorStatusLog {
+  id          Int              @id @default(autoincrement())
+  connectorId Int
+  connector   Connector        @relation(fields: [connectorId], references: [id])
+  status      ConnectorStatus
+  powerKw     Float?
+  timestamp   DateTime         @default(now())
+  createdAt   DateTime         @default(now())
+  updatedAt   DateTime         @updatedAt
+
+  @@index([connectorId])
+}
+
+model StationPricing {
+  id          Int      @id @default(autoincrement())
+  stationId   Int
+  station     ChargingStation @relation(fields: [stationId], references: [id])
+  pricePerKwh Float
+  idleFee     Float?
+  endTime     DateTime?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([stationId])
+}
+
+model ChargingSession {
+  id          Int          @id @default(autoincrement())
+  userId      Int
+  user        User         @relation(fields: [userId], references: [id])
+  connectorId Int
+  connector   Connector    @relation(fields: [connectorId], references: [id])
+  energyKwh   Float        @default(0)
+  cost        Float        @default(0)
+  status      SessionStatus @default(ACTIVE)
+  startTime   DateTime      @default(now())
+  endTime     DateTime?
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+
+  @@index([userId])
+  @@index([connectorId])
+}
+
+model OperatorPayout {
+  id         Int          @id @default(autoincrement())
+  operatorId Int
+  operator   Operator     @relation(fields: [operatorId], references: [id])
+  amount     Float
+  currency   String       @default("USD")
+  status     PayoutStatus @default(PENDING)
+  periodFrom DateTime
+  periodTo   DateTime
+  paidAt     DateTime?
+  createdAt  DateTime     @default(now())
+  updatedAt  DateTime     @updatedAt
+
+  @@index([operatorId])
+}
 

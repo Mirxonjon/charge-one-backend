@@ -57,6 +57,9 @@
     "weaviate-client": "^3.6.2",
     "xml2js": "^0.6.2"
   },
+  "prisma": {
+    "seed": "ts-node prisma/seed.ts"
+  },
   "devDependencies": {
     "@nestjs/cli": "^10.0.0",
     "@nestjs/schematics": "^10.0.0",
