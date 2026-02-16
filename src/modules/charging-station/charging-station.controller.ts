@@ -10,7 +10,7 @@ import { FilterChargingStationDto } from '@/types/charging-station/filter-chargi
 
 @ApiTags('ChargingStation')
 @ApiBearerAuth()
-@UseGuards(JwtAuthGuard, RolesGuard)
+// @UseGuards(JwtAuthGuard, RolesGuard)
 @Controller('stations')
 export class ChargingStationController {
   constructor(private readonly service: ChargingStationService) {}

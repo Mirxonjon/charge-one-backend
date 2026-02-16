@@ -10,7 +10,7 @@ import { FilterConnectorDto } from '@/types/connector/filter-connector.dto';
 
 @ApiTags('Connector')
 @ApiBearerAuth()
-@UseGuards(JwtAuthGuard, RolesGuard)
+// @UseGuards(JwtAuthGuard, RolesGuard)
 @Controller('connectors')
 export class ConnectorController {
   constructor(private readonly service: ConnectorService) {}
