@@ -1,8 +1,10 @@
-import { HttpException, HttpStatus, Injectable,  } from '@nestjs/common';
+import { HttpException, HttpStatus, Injectable } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 
 const OTP_TTL_MINUTES = parseInt(process.env.OTP_TTL_MINUTES || '3'); // 2-5 minutes window
-const OTP_RESEND_WINDOW_SECONDS = parseInt(process.env.OTP_RESEND_WINDOW_SECONDS || '60'); // rate-limit per minute
+const OTP_RESEND_WINDOW_SECONDS = parseInt(
+  process.env.OTP_RESEND_WINDOW_SECONDS || '60'
+); // rate-limit per minute
 
 @Injectable()
 export class OtpService {
@@ -24,7 +26,7 @@ export class OtpService {
   }
 
   async generateAndStoreOtp(phone: string, userId?: number) {
-    const code = '' + Math.floor(100000 + Math.random() * 900000);
+    const code = '' + Math.floor(10000 + Math.random() * 90000);
     const expiresAt = new Date(Date.now() + OTP_TTL_MINUTES * 60 * 1000);
 
     await this.prisma.otpCode.create({
@@ -47,7 +49,10 @@ export class OtpService {
       data: { attemptsCount: { increment: 1 } },
     });
     if (updated.attemptsCount > 5) {
-      await this.prisma.otpCode.update({ where: { id: otp.id }, data: { isUsed: true } });
+      await this.prisma.otpCode.update({
+        where: { id: otp.id },
+        data: { isUsed: true },
+      });
       return false;
     }
 

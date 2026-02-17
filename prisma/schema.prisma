@@ -38,6 +38,7 @@ model User {
   password       String?
   firstName      String?
   lastName       String?
+  wasBorn        DateTime?
   isVerified     Boolean   @default(false)
   roleId         Int
   role           Role      @relation(fields: [roleId], references: [id])
@@ -193,6 +194,7 @@ model ChargingStation {
   longitude    Float
   isActive     Boolean      @default(true)
   workingHours String?
+  Discount     Discount[]
   connectors   Connector[]
   pricing      StationPricing[]
   createdAt    DateTime     @default(now())
@@ -209,6 +211,7 @@ model Connector {
   powerKw      Float
   status       ConnectorStatus   @default(AVAILABLE)
   pricePerKwh  Float?
+  Discount    Discount[]
   sessions     ChargingSession[]
   statusLogs   ConnectorStatusLog[]
   createdAt    DateTime          @default(now())
@@ -319,3 +322,26 @@ model OperatorPayout {
   @@index([operatorId])
 }
 
+model Discount {
+  id          Int       @id @default(autoincrement())
+
+  stationId   Int
+  station     ChargingStation @relation(fields: [stationId], references: [id], onDelete: Cascade)
+
+  connectorId Int?
+  connector   Connector? @relation(fields: [connectorId], references: [id], onDelete: Cascade)
+
+  percent     Float?     // percentage discount
+  fixedPrice  Decimal?   @db.Decimal(10,2)
+
+  startTime   DateTime
+  endTime     DateTime
+
+  isActive    Boolean    @default(true)
+
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
+
+  @@index([stationId])
+  @@index([connectorId])
+}

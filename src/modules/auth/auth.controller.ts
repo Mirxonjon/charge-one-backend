@@ -6,6 +6,8 @@ import {
   Post,
   Req,
   UseGuards,
+  Get,
+  Patch,
 } from '@nestjs/common';
 import {
   ApiBearerAuth,
@@ -27,6 +29,8 @@ import { SetNewPasswordDto } from '@/types/auth/set-new-password.dto';
 import { Public } from '@/common/decorators/public.decorator';
 import { Request } from 'express';
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
+import { MeResponseDto } from '@/types/auth/me-response.dto';
+import { UpdateMeDto } from '@/types/auth/update-me.dto';
 import { Roles } from './decorators/roles.decorator';
 import { RolesGuard } from './guards/roles.guard';
 import { RegisterDto } from '@/types/auth/register.dto';
@@ -55,46 +59,57 @@ export class AuthController {
     status: 200,
     schema: { example: { registrationToken: 'a3bf...' } },
   })
-  verifyOtp(@Body() dto: VerifyOtpDto) {
-    return this.authService.verifyOtpForRegistration(dto);
-  }
-
-  // LOGIN OTP FLOW
-  @Public()
-  @Post('login/request-otp')
-  @HttpCode(HttpStatus.OK)
-  @ApiOperation({ summary: 'Login — STEP 1: Request OTP (send SMS)' })
-  @ApiBody({ type: RequestOtpDto })
-  @ApiResponse({ status: 200, schema: { example: { message: 'OTP sent' } } })
-  requestLoginOtp(@Body() dto: RequestOtpDto) {
-    return this.authService.requestLoginOtp(dto);
-  }
-
-  @Public()
-  @Post('login/verify-otp')
-  @HttpCode(HttpStatus.OK)
-  @ApiOperation({ summary: 'Login — STEP 2: Verify OTP and login' })
-  @ApiBody({ type: VerifyLoginOtpDto })
-  @ApiResponse({ status: 200, schema: { example: { accessToken: 'eyJ...', refreshToken: 'eyJ...' } } })
-  verifyLoginOtp(@Body() dto: VerifyLoginOtpDto, @Req() req: Request) {
+  verifyOtp(@Body() dto: VerifyOtpDto, @Req() req: Request) {
     const ip = req.ip;
     const userAgent = req.headers['user-agent'];
-    return this.authService.verifyLoginOtp(dto, { ip, userAgent: userAgent as string });
-  }
-
-  @Public()
-  @Post('login/password')
-  @HttpCode(HttpStatus.OK)
-  @ApiOperation({ summary: 'Login using phone + password' })
-  @ApiBody({ type: LoginWithPasswordDto })
-  loginWithPassword(@Body() dto: LoginWithPasswordDto, @Req() req: Request) {
-    const ip = req.ip;
-    const userAgent = req.headers['user-agent'];
-    return this.authService.loginWithPassword(dto, {
+    return this.authService.verifyOtpForRegistration(dto, {
       ip,
       userAgent: userAgent as string,
     });
   }
+
+  // LOGIN OTP FLOW
+  // @Public()
+  // @Post('login/request-otp')
+  // @HttpCode(HttpStatus.OK)
+  // @ApiOperation({ summary: 'Login — STEP 1: Request OTP (send SMS)' })
+  // @ApiBody({ type: RequestOtpDto })
+  // @ApiResponse({ status: 200, schema: { example: { message: 'OTP sent' } } })
+  // requestLoginOtp(@Body() dto: RequestOtpDto) {
+  //   return this.authService.requestLoginOtp(dto);
+  // }
+
+  // @Public()
+  // @Post('login/verify-otp')
+  // @HttpCode(HttpStatus.OK)
+  // @ApiOperation({ summary: 'Login — STEP 2: Verify OTP and login' })
+  // @ApiBody({ type: VerifyLoginOtpDto })
+  // @ApiResponse({
+  //   status: 200,
+  //   schema: { example: { accessToken: 'eyJ...', refreshToken: 'eyJ...' } },
+  // })
+  // verifyLoginOtp(@Body() dto: VerifyLoginOtpDto, @Req() req: Request) {
+  //   const ip = req.ip;
+  //   const userAgent = req.headers['user-agent'];
+  //   return this.authService.verifyLoginOtp(dto, {
+  //     ip,
+  //     userAgent: userAgent as string,
+  //   });
+  // }
+
+  // @Public()
+  // @Post('login/password')
+  // @HttpCode(HttpStatus.OK)
+  // @ApiOperation({ summary: 'Login using phone + password' })
+  // @ApiBody({ type: LoginWithPasswordDto })
+  // loginWithPassword(@Body() dto: LoginWithPasswordDto, @Req() req: Request) {
+  //   const ip = req.ip;
+  //   const userAgent = req.headers['user-agent'];
+  //   return this.authService.loginWithPassword(dto, {
+  //     ip,
+  //     userAgent: userAgent as string,
+  //   });
+  // }
 
   @Public()
   @Post('refresh')
@@ -128,75 +143,97 @@ export class AuthController {
     });
   }
 
-  @Public()
-  @Post('forgot-password')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth()
+  @Get('me')
   @HttpCode(HttpStatus.OK)
-  @ApiOperation({ summary: 'Send OTP for password reset' })
-  @ApiBody({ type: ForgotPasswordDto })
-  @ApiResponse({ status: 200, schema: { example: { success: true } } })
-  forgotPassword(@Body() dto: ForgotPasswordDto) {
-    return this.authService.forgotPassword(dto);
+  @ApiOperation({ summary: 'Get current user (safe fields only)' })
+  @ApiResponse({ status: 200, type: MeResponseDto })
+  me(@Req() req: any): Promise<MeResponseDto> {
+    const userId = req.user.sub as number;
+    return this.authService.getMe(userId);
   }
 
-  @Public()
-  @Post('verify-reset-otp')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth()
+  @Patch('me')
   @HttpCode(HttpStatus.OK)
-  @ApiOperation({ summary: 'STEP 1 — Verify reset OTP and issue resetToken' })
-  @ApiBody({ type: VerifyResetOtpDto })
-  @ApiResponse({
-    status: 200,
-    schema: { example: { resetToken: '1f2e3d4c...' } },
-  })
-  verifyResetOtp(@Body() dto: VerifyResetOtpDto) {
-    return this.authService.verifyResetOtp(dto);
+  @ApiOperation({ summary: 'Update current user profile (firstName, lastName, wasBorn)' })
+  @ApiBody({ type: UpdateMeDto })
+  @ApiResponse({ status: 200, type: MeResponseDto })
+  updateMe(@Req() req: any, @Body() dto: UpdateMeDto): Promise<MeResponseDto> {
+    const userId = req.user.sub as number;
+    return this.authService.updateMe(userId, dto);
   }
 
-  @Public()
-  @Post('set-password')
-  @HttpCode(HttpStatus.OK)
-  @ApiOperation({ summary: 'STEP 3 — Set password and login (issue tokens)' })
-  @ApiBody({ type: SetPasswordDto })
-  @ApiResponse({
-    status: 200,
-    schema: {
-      example: {
-        accessToken: 'eyJ...',
-        refreshToken: 'eyJ...',
-        expiresIn: 900,
-      },
-    },
-  })
-  setPassword(@Body() dto: SetPasswordDto, @Req() req: Request) {
-    const ip = req.ip;
-    const userAgent = req.headers['user-agent'];
-    return this.authService.setPasswordAndLogin(dto, {
-      ip,
-      userAgent: userAgent as string,
-    });
-  }
+  // @Public()
+  // @Post('forgot-password')
+  // @HttpCode(HttpStatus.OK)
+  // @ApiOperation({ summary: 'Send OTP for password reset' })
+  // @ApiBody({ type: ForgotPasswordDto })
+  // @ApiResponse({ status: 200, schema: { example: { success: true } } })
+  // forgotPassword(@Body() dto: ForgotPasswordDto) {
+  //   return this.authService.forgotPassword(dto);
+  // }
 
-  @Public()
-  @Post('reset-password')
-  @HttpCode(HttpStatus.OK)
-  @ApiOperation({ summary: 'STEP 3 — Set password and login (issue tokens)' })
-  @ApiBody({ type: SetNewPasswordDto })
-  @ApiResponse({
-    status: 200,
-    schema: {
-      example: {
-        accessToken: 'eyJ...',
-        refreshToken: 'eyJ...',
-        expiresIn: 900,
-      },
-    },
-  })
-  resetPassword(@Body() dto: SetNewPasswordDto, @Req() req: Request) {
-    const ip = req.ip;
-    const userAgent = req.headers['user-agent'];
-    return this.authService.resetPasswordAndLogin(dto, {
-      ip,
-      userAgent: userAgent as string,
-    });
-  }
+  // @Public()
+  // @Post('verify-reset-otp')
+  // @HttpCode(HttpStatus.OK)
+  // @ApiOperation({ summary: 'STEP 1 — Verify reset OTP and issue resetToken' })
+  // @ApiBody({ type: VerifyResetOtpDto })
+  // @ApiResponse({
+  //   status: 200,
+  //   schema: { example: { resetToken: '1f2e3d4c...' } },
+  // })
+  // verifyResetOtp(@Body() dto: VerifyResetOtpDto) {
+  //   return this.authService.verifyResetOtp(dto);
+  // }
 
+  // @Public()
+  // @Post('set-password')
+  // @HttpCode(HttpStatus.OK)
+  // @ApiOperation({ summary: 'STEP 3 — Set password and login (issue tokens)' })
+  // @ApiBody({ type: SetPasswordDto })
+  // @ApiResponse({
+  //   status: 200,
+  //   schema: {
+  //     example: {
+  //       accessToken: 'eyJ...',
+  //       refreshToken: 'eyJ...',
+  //       expiresIn: 900,
+  //     },
+  //   },
+  // })
+  // setPassword(@Body() dto: SetPasswordDto, @Req() req: Request) {
+  //   const ip = req.ip;
+  //   const userAgent = req.headers['user-agent'];
+  //   return this.authService.setPasswordAndLogin(dto, {
+  //     ip,
+  //     userAgent: userAgent as string,
+  //   });
+  // }
+
+  // @Public()
+  // @Post('reset-password')
+  // @HttpCode(HttpStatus.OK)
+  // @ApiOperation({ summary: 'STEP 3 — Set password and login (issue tokens)' })
+  // @ApiBody({ type: SetNewPasswordDto })
+  // @ApiResponse({
+  //   status: 200,
+  //   schema: {
+  //     example: {
+  //       accessToken: 'eyJ...',
+  //       refreshToken: 'eyJ...',
+  //       expiresIn: 900,
+  //     },
+  //   },
+  // })
+  // resetPassword(@Body() dto: SetNewPasswordDto, @Req() req: Request) {
+  //   const ip = req.ip;
+  //   const userAgent = req.headers['user-agent'];
+  //   return this.authService.resetPasswordAndLogin(dto, {
+  //     ip,
+  //     userAgent: userAgent as string,
+  //   });
+  // }
 }
