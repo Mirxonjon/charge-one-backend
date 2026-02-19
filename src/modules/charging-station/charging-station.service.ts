@@ -9,7 +9,8 @@ export class ChargingStationService {
   constructor(private prisma: PrismaService) {}
 
   async create(dto: CreateChargingStationDto) {
-    return this.prisma.chargingStation.create({ data: dto });
+    const created = await this.prisma.chargingStation.create({ data: dto });
+    return created;
   }
 
   async findAll(query: FilterChargingStationDto) {
@@ -18,8 +19,14 @@ export class ChargingStationService {
       limit = 10,
       sortBy = 'createdAt',
       sortOrder = 'desc',
+      priceSort ,
       operatorId,
       isActive,
+      powerType,
+      search,
+      connectorType,
+      connectorStatus,
+      chargingSpeed,
       from,
       to,
       lat,
@@ -28,42 +35,121 @@ export class ChargingStationService {
     } = query;
 
     const where: any = {};
+
     if (operatorId) where.operatorId = operatorId;
     if (typeof isActive === 'boolean') where.isActive = isActive;
+    if (powerType) where.powerType = powerType;
+    if (search) {
+      where.title = {
+        contains: search,
+        mode: 'insensitive', // katta-kichik harf farq qilmaydi
+      };
+    }
+
     if (from || to) {
       where.createdAt = {};
       if (from) where.createdAt.gte = new Date(from);
       if (to) where.createdAt.lte = new Date(to);
     }
 
-    let stations = await this.prisma.chargingStation.findMany({
-      where,
-      orderBy: { [sortBy]: sortOrder },
-      skip: (page - 1) * limit,
-      take: limit,
-      include: { operator: true },
-    });
+    if (connectorType || connectorStatus || chargingSpeed) {
+      where.connectors = {
+        some: {},
+      };
 
-    // location filtering in-memory; for production use PostGIS/earthdistance
-    if (lat !== undefined && lng !== undefined && radiusKm !== undefined) {
-      const R = 6371; // km
+      if (connectorType) {
+        where.connectors.some.type = connectorType;
+      }
+
+      if (connectorStatus) {
+        where.connectors.some.status = connectorStatus;
+      }
+
+      if (chargingSpeed) {
+        switch (chargingSpeed) {
+          case 'STANDARD':
+            where.connectors.some.powerKw = { gte: 7, lte: 44 };
+            break;
+          case 'SEMI_FAST':
+            where.connectors.some.powerKw = { gte: 60, lte: 80 };
+            break;
+          case 'FAST':
+            where.connectors.some.powerKw = { gte: 120, lte: 180 };
+            break;
+          case 'ULTRA':
+            where.connectors.some.powerKw = { gt: 200 };
+            break;
+        }
+      }
+    }
+
+    let stations = (await this.prisma.chargingStation.findMany({
+      where,
+      include: {
+        operator: true,
+        pricing: true,
+        connectors: true,
+      },
+    })) as any;
+
+    // 🔥 DISTANCE LOGIC
+    if (lat !== undefined && lng !== undefined) {
+      const R = 6371;
       const toRad = (v: number) => (v * Math.PI) / 180;
-      stations = stations.filter((s) => {
+
+      stations = stations.map((s) => {
         const dLat = toRad(s.latitude - lat);
         const dLng = toRad(s.longitude - lng);
+
         const a =
           Math.sin(dLat / 2) ** 2 +
           Math.cos(toRad(lat)) *
             Math.cos(toRad(s.latitude)) *
             Math.sin(dLng / 2) ** 2;
+
         const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
         const d = R * c;
-        return d <= radiusKm;
+
+        return {
+          ...s,
+          distanceKm: Number(d.toFixed(2)), // <-- masofa qo‘shiladi
+        };
+      });
+
+      // 🔥 radius filter
+      if (radiusKm !== undefined) {
+        stations = stations.filter((s) => s.distanceKm <= radiusKm);
+      }
+
+      // 🔥 eng yaqin birinchi
+      stations.sort((a, b) => a.distanceKm - b.distanceKm);
+    }
+    if (priceSort) {
+      stations.sort((a, b) => {
+        const aMin = a.pricing?.length
+          ? Math.min(...a.pricing.map((p) => Number(p.price)))
+          : Infinity;
+
+        const bMin = b.pricing?.length
+          ? Math.min(...b.pricing.map((p) => Number(p.price)))
+          : Infinity;
+
+        return priceSort === 'asc'
+          ? aMin - bMin // eng arzon birinchi
+          : bMin - aMin; // eng qimmat birinchi
       });
     }
+    // 🔥 pagination in-memory
+    const total = stations.length;
 
-    const total = await this.prisma.chargingStation.count({ where });
-    return { items: stations, total, page, limit };
+    const paginated = stations.slice((page - 1) * limit, page * limit);
+
+    return {
+      items: paginated,
+      total,
+      page,
+      limit,
+    };
   }
 
   async findOne(id: number) {
@@ -76,7 +162,11 @@ export class ChargingStationService {
 
   async update(id: number, dto: UpdateChargingStationDto) {
     await this.findOne(id);
-    return this.prisma.chargingStation.update({ where: { id }, data: dto });
+    const updated = await this.prisma.chargingStation.update({
+      where: { id },
+      data: dto,
+    });
+    return updated;
   }
 
   async remove(id: number) {

@@ -27,13 +27,8 @@ export class FilterOperatorDto {
   @IsIn(['asc', 'desc'])
   sortOrder?: 'asc' | 'desc' = 'desc';
 
-  @ApiPropertyOptional({ example: '2024-01-01' })
+  @ApiPropertyOptional({ example: 'Green', description: 'Search in title (contains, case-insensitive)' })
   @IsOptional()
   @IsString()
-  from?: string;
-
-  @ApiPropertyOptional({ example: '2024-12-31' })
-  @IsOptional()
-  @IsString()
-  to?: string;
+  title?: string;
 }

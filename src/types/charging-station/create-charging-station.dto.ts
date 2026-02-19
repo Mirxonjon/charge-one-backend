@@ -1,6 +1,7 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { IsBoolean, IsNotEmpty, IsNumber, IsOptional, IsString } from 'class-validator';
+import { IsBoolean, IsEnum, IsNotEmpty, IsNumber, IsOptional, IsString } from 'class-validator';
 import { Type } from 'class-transformer';
+import { StationPowerType } from '@prisma/client';
 
 export class CreateChargingStationDto {
   @ApiProperty({ example: 1 })
@@ -27,6 +28,10 @@ export class CreateChargingStationDto {
   @Type(() => Number)
   @IsNumber()
   longitude: number;
+
+  @ApiProperty({ enum: StationPowerType, example: StationPowerType.AC })
+  @IsEnum(StationPowerType)
+  powerType: StationPowerType;
 
   @ApiPropertyOptional({ example: true })
   @IsOptional()

@@ -170,18 +170,27 @@ enum PayoutStatus {
   PAID
   FAILED
 }
+enum StationPowerType {
+  AC
+  DC
+  HYBRID
+  ULTRA
+}
 
 model Operator {
-  id         Int                @id @default(autoincrement())
-  title      String
-  contact    String?
-  bankName   String?
-  bankAccount String?
-  bankMfo    String?
-  stations   ChargingStation[]
-  payouts    OperatorPayout[]
-  createdAt  DateTime           @default(now())
-  updatedAt  DateTime           @updatedAt
+  id           Int                @id @default(autoincrement())
+  title        String
+  color        String?
+  contact      String?
+  bankName     String?
+  bankAccount  String?
+  bankMfo      String?
+  stations     ChargingStation[]
+  payouts      OperatorPayout[]
+  createdAt    DateTime           @default(now())
+  updatedAt    DateTime           @updatedAt
+
+  @@index([title])
 }
 
 model ChargingStation {
@@ -192,6 +201,7 @@ model ChargingStation {
   address      String?
   latitude     Float
   longitude    Float
+  powerType    StationPowerType
   isActive     Boolean      @default(true)
   workingHours String?
   Discount     Discount[]

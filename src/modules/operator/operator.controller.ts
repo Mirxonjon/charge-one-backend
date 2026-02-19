@@ -25,8 +25,7 @@ export class OperatorController {
   }
 
   @Get()
-  @Roles('ADMIN')
-  @ApiOperation({ summary: 'List operators (ADMIN)' })
+  @ApiOperation({ summary: 'List operators' })
   @ApiQuery({ name: 'page', required: false, example: 1 })
   @ApiQuery({ name: 'limit', required: false, example: 10 })
   @ApiQuery({ name: 'sortBy', required: false, example: 'createdAt' })
@@ -38,8 +37,7 @@ export class OperatorController {
   }
 
   @Get(':id')
-  @Roles('ADMIN')
-  @ApiOperation({ summary: 'Get operator by id (ADMIN)' })
+  @ApiOperation({ summary: 'Get operator by id' })
   findOne(@Param('id', ParseIntPipe) id: number) {
     return this.service.findOne(id);
   }

@@ -1,5 +1,5 @@
-import { ApiProperty } from '@nestjs/swagger';
-import { IsNotEmpty, IsOptional, IsString } from 'class-validator';
+import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+import { IsNotEmpty, IsOptional, IsString, Matches } from 'class-validator';
 
 export class CreateOperatorDto {
   @ApiProperty({ example: 'GreenCharge LLC' })
@@ -7,7 +7,13 @@ export class CreateOperatorDto {
   @IsString()
   title: string;
 
-  @ApiProperty({ example: '+1 555-123-4567', required: false })
+  @ApiPropertyOptional({ example: '#00A86B', description: 'HEX color code' })
+  @IsOptional()
+  @IsString()
+  @Matches(/^#(?:[0-9a-fA-F]{3}){1,2}$/,{ message: 'color must be valid HEX like #00A86B' })
+  color?: string;
+
+  @ApiPropertyOptional({ example: '+1 555-123-4567' })
   @IsOptional()
   @IsString()
   contact?: string;

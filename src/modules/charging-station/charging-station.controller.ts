@@ -35,8 +35,13 @@ export class ChargingStationController {
   @ApiQuery({ name: 'from', required: false, example: '2024-01-01' })
   @ApiQuery({ name: 'to', required: false, example: '2024-12-31' })
   @ApiQuery({ name: 'lat', required: false, example: 40.7128 })
-  @ApiQuery({ name: 'lng', required: false, example: -74.0060 })
+  @ApiQuery({ name: 'lng', required: false, example: -74.006 })
   @ApiQuery({ name: 'radiusKm', required: false, example: 5 })
+  @ApiQuery({
+    name: 'powerType',
+    required: false,
+    enum: ['AC', 'DC', 'HYBRID', 'ULTRA'],
+  })
   findAll(@Query() query: FilterChargingStationDto) {
     return this.service.findAll(query);
   }
@@ -50,7 +55,10 @@ export class ChargingStationController {
   @Patch(':id')
   @Roles('ADMIN')
   @ApiOperation({ summary: 'Update charging station (ADMIN)' })
-  update(@Param('id', ParseIntPipe) id: number, @Body() dto: UpdateChargingStationDto) {
+  update(
+    @Param('id', ParseIntPipe) id: number,
+    @Body() dto: UpdateChargingStationDto
+  ) {
     return this.service.update(id, dto);
   }
 
