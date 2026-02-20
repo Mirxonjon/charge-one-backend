@@ -26,6 +26,7 @@ import { OperatorPayoutModule } from './modules/operator-payout/operator-payout.
 import { WalletModule } from './modules/wallet/wallet.module';
 import { WalletTransactionModule } from './modules/wallet-transaction/wallet-transaction.module';
 import { PaymentModule } from './modules/payment/payment.module';
+import { LegalModule } from './modules/legal/legal.module';
 import { DiscountModule } from './modules/discount/discount.module';
 
 @Module({
@@ -59,6 +60,7 @@ import { DiscountModule } from './modules/discount/discount.module';
     WalletModule,
     WalletTransactionModule,
     PaymentModule,
+    LegalModule,
     DiscountModule,
   ],
   providers: [
