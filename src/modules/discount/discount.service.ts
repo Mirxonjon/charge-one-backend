@@ -41,7 +41,6 @@ export class DiscountService {
     return this.prisma.discount.create({
       data: {
         stationId: dto.stationId,
-        connectorId: dto.connectorId ?? null,
         percent: dto.percent ?? null,
         fixedPrice: dto.fixedPrice ? dto.fixedPrice : null,
         startTime: new Date(dto.startTime),
@@ -64,14 +63,13 @@ export class DiscountService {
     }
 
     if (dto.stationId || dto.connectorId) {
-      await this.assertConnectorBelongs(dto.stationId ?? discount.stationId, dto.connectorId ?? discount.connectorId);
+      await this.assertConnectorBelongs(dto.stationId ?? discount.stationId,);
     }
 
     return this.prisma.discount.update({
       where: { id },
       data: {
         stationId: dto.stationId ?? undefined,
-        connectorId: dto.connectorId === undefined ? undefined : dto.connectorId,
         percent: dto.percent === undefined ? undefined : dto.percent,
         fixedPrice: dto.fixedPrice === undefined ? undefined : dto.fixedPrice,
         startTime: dto.startTime ? new Date(dto.startTime) : undefined,

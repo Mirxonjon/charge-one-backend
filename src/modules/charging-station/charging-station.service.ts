@@ -19,7 +19,7 @@ export class ChargingStationService {
       limit = 10,
       sortBy = 'createdAt',
       sortOrder = 'desc',
-      priceSort ,
+      priceSort,
       operatorId,
       isActive,
       powerType,
@@ -86,10 +86,22 @@ export class ChargingStationService {
     let stations = (await this.prisma.chargingStation.findMany({
       where,
       include: {
-        operator: true,
+        operator: {
+          select: {
+            title: true,
+            color: true,
+          },
+        },
         pricing: true,
         connectors: true,
       },
+      orderBy: priceSort
+        ? {
+            pricing: {
+              pricePerKwh: priceSort, // 'asc' | 'desc'
+            },
+          }
+        : undefined,
     })) as any;
 
     // 🔥 DISTANCE LOGIC
@@ -116,30 +128,13 @@ export class ChargingStationService {
         };
       });
 
-      // 🔥 radius filter
       if (radiusKm !== undefined) {
         stations = stations.filter((s) => s.distanceKm <= radiusKm);
       }
 
-      // 🔥 eng yaqin birinchi
       stations.sort((a, b) => a.distanceKm - b.distanceKm);
     }
-    if (priceSort) {
-      stations.sort((a, b) => {
-        const aMin = a.pricing?.length
-          ? Math.min(...a.pricing.map((p) => Number(p.price)))
-          : Infinity;
 
-        const bMin = b.pricing?.length
-          ? Math.min(...b.pricing.map((p) => Number(p.price)))
-          : Infinity;
-
-        return priceSort === 'asc'
-          ? aMin - bMin // eng arzon birinchi
-          : bMin - aMin; // eng qimmat birinchi
-      });
-    }
-    // 🔥 pagination in-memory
     const total = stations.length;
 
     const paginated = stations.slice((page - 1) * limit, page * limit);

@@ -81,9 +81,9 @@ async function main() {
   // Seed connectors
   await prisma.connector.createMany({
     data: [
-      { stationId: st1.id, type: 'CCS2', powerKw: 150, status: ConnectorStatus.AVAILABLE, pricePerKwh: 0.25 },
-      { stationId: st1.id, type: 'Type2', powerKw: 22, status: ConnectorStatus.AVAILABLE, pricePerKwh: 0.20 },
-      { stationId: st2.id, type: 'CHAdeMO', powerKw: 50, status: ConnectorStatus.OUT_OF_SERVICE, pricePerKwh: 0.30 },
+      { stationId: st1.id, type: 'CCS2', powerKw: 150, status: ConnectorStatus.AVAILABLE,  },
+      { stationId: st1.id, type: 'Type2', powerKw: 22, status: ConnectorStatus.AVAILABLE,  },
+      { stationId: st2.id, type: 'CHAdeMO', powerKw: 50, status: ConnectorStatus.OUT_OF_SERVICE, },
     ],
   });
 

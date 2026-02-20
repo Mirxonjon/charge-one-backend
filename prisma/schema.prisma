@@ -204,9 +204,9 @@ model ChargingStation {
   powerType    StationPowerType
   isActive     Boolean      @default(true)
   workingHours String?
-  Discount     Discount[]
+  Discount     Discount?
   connectors   Connector[]
-  pricing      StationPricing[]
+  pricing      StationPricing?
   createdAt    DateTime     @default(now())
   updatedAt    DateTime     @updatedAt
 
@@ -220,8 +220,6 @@ model Connector {
   type         String
   powerKw      Float
   status       ConnectorStatus   @default(AVAILABLE)
-  pricePerKwh  Float?
-  Discount    Discount[]
   sessions     ChargingSession[]
   statusLogs   ConnectorStatusLog[]
   createdAt    DateTime          @default(now())
@@ -245,12 +243,12 @@ model ConnectorStatusLog {
 
 model StationPricing {
   id          Int      @id @default(autoincrement())
-  stationId   Int
+  stationId   Int      @unique 
   station     ChargingStation @relation(fields: [stationId], references: [id])
   pricePerKwh Float
   idleFee     Float?
   endTime     DateTime?
-  createdAt   DateTime @default(now())
+  createdAt   DateTime @default(now()) 
   updatedAt   DateTime @updatedAt
 
   @@index([stationId])
@@ -335,11 +333,8 @@ model OperatorPayout {
 model Discount {
   id          Int       @id @default(autoincrement())
 
-  stationId   Int
+  stationId   Int       @unique
   station     ChargingStation @relation(fields: [stationId], references: [id], onDelete: Cascade)
-
-  connectorId Int?
-  connector   Connector? @relation(fields: [connectorId], references: [id], onDelete: Cascade)
 
   percent     Float?     // percentage discount
   fixedPrice  Decimal?   @db.Decimal(10,2)
@@ -353,5 +348,4 @@ model Discount {
   updatedAt   DateTime   @updatedAt
 
   @@index([stationId])
-  @@index([connectorId])
 }
