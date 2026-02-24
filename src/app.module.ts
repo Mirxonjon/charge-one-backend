@@ -28,6 +28,7 @@ import { WalletTransactionModule } from './modules/wallet-transaction/wallet-tra
 import { PaymentModule } from './modules/payment/payment.module';
 import { LegalModule } from './modules/legal/legal.module';
 import { DiscountModule } from './modules/discount/discount.module';
+import { StationLikeModule } from './modules/station-like/station-like.module';
 
 @Module({
   imports: [
@@ -62,6 +63,7 @@ import { DiscountModule } from './modules/discount/discount.module';
     PaymentModule,
     LegalModule,
     DiscountModule,
+    StationLikeModule,
   ],
   providers: [
     {

@@ -47,6 +47,7 @@ model User {
   userCars       UserCar[]
   Cars           Car[]
   Wallet         Wallet[]
+  StationLike    StationLike[]
 
   ChargingSession  ChargingSession[]
   resetTokens    PasswordResetToken[]
@@ -207,6 +208,7 @@ model ChargingStation {
   Discount     Discount?
   connectors   Connector[]
   pricing      StationPricing?
+  StationLike  StationLike[]
   createdAt    DateTime     @default(now())
   updatedAt    DateTime     @updatedAt
 
@@ -386,4 +388,19 @@ enum Language {
   UZ
   RU
   EN
+}
+
+model StationLike {
+  id         Int  @id @default(autoincrement())
+  userId     Int
+  stationId  Int
+
+  user       User             @relation(fields: [userId], references: [id])
+  station    ChargingStation  @relation(fields: [stationId], references: [id])
+
+  createdAt  DateTime @default(now())
+
+  @@unique([userId, stationId])
+  @@index([stationId])
+  @@index([userId])
 }
