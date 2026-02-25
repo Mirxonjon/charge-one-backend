@@ -48,6 +48,8 @@ model User {
   Cars           Car[]
   Wallet         Wallet[]
   StationLike    StationLike[]
+  Notification   Notification[]
+  UserDevice     UserDevice[]
 
   ChargingSession  ChargingSession[]
   resetTokens    PasswordResetToken[]
@@ -402,5 +404,34 @@ model StationLike {
 
   @@unique([userId, stationId])
   @@index([stationId])
+  @@index([userId])
+}
+
+model Notification {
+  id        Int      @id @default(autoincrement())
+  userId    Int?
+  title     String
+  body      String
+  type      String
+  data      Json?
+  isRead    Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  user User? @relation(fields: [userId], references: [id])
+
+  @@index([userId])
+}
+
+model UserDevice {
+  id          Int      @id @default(autoincrement())
+  userId      Int
+  deviceToken String
+  platform    String   // ANDROID | IOS
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id])
+
+  @@unique([userId, deviceToken])
   @@index([userId])
 }

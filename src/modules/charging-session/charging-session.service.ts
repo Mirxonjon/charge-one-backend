@@ -4,13 +4,14 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { PrismaService } from '@/modules/prisma/prisma.service';
+import { NotificationService } from '@/modules/notification/notification.service';
 import { CreateChargingSessionDto } from '@/types/charging-session/create-charging-session.dto';
 import { UpdateChargingSessionDto } from '@/types/charging-session/update-charging-session.dto';
 import { FilterChargingSessionDto } from '@/types/charging-session/filter-charging-session.dto';
 import { SessionStatus } from '@prisma/client';
 @Injectable()
 export class ChargingSessionService {
-  constructor(private prisma: PrismaService) {}
+  constructor(private prisma: PrismaService, private notificationService: NotificationService) {}
   async createForUser(userId: number, dto: CreateChargingSessionDto) {
     return this.prisma.chargingSession.create({
       data: {
@@ -103,8 +104,8 @@ export class ChargingSessionService {
     return item;
   }
   async adminUpdate(id: number, dto: UpdateChargingSessionDto) {
-    await this.adminFindOne(id);
-    return this.prisma.chargingSession.update({
+    const existing = await this.adminFindOne(id);
+    const updated = await this.prisma.chargingSession.update({
       where: { id },
       data: {
         connectorId: dto.connectorId,
@@ -115,6 +116,21 @@ export class ChargingSessionService {
         endTime: dto.endTime ? new Date(dto.endTime) : undefined,
       },
     });
+
+    if (existing.status !== updated.status && updated.status === SessionStatus.COMPLETED) {
+      try {
+        await this.notificationService.sendToUser(updated.userId, {
+          title: 'Charging Completed',
+          body: 'Sizning zaryadingiz tugadi',
+          type: 'SESSION_COMPLETED',
+          data: { sessionId: updated.id },
+        });
+      } catch (e) {
+        // ignore notification errors
+      }
+    }
+
+    return updated;
   }
   async adminRemove(id: number) {
     await this.adminFindOne(id);

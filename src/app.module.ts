@@ -29,6 +29,7 @@ import { PaymentModule } from './modules/payment/payment.module';
 import { LegalModule } from './modules/legal/legal.module';
 import { DiscountModule } from './modules/discount/discount.module';
 import { StationLikeModule } from './modules/station-like/station-like.module';
+import { NotificationModule } from './modules/notification/notification.module';
 
 @Module({
   imports: [
@@ -64,6 +65,7 @@ import { StationLikeModule } from './modules/station-like/station-like.module';
     LegalModule,
     DiscountModule,
     StationLikeModule,
+    NotificationModule,
   ],
   providers: [
     {
