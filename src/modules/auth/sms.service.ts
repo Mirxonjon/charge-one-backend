@@ -9,7 +9,7 @@ export class SmsService {
 
     const payload = {
       phones: [phone], // masalan: "+998974409931"
-      text: `Sizning tasdiqlash kodingiz: ${code}`,
+      text: `Charge One — Код подтверждения для входа: ${code}. Никому не сообщайте этот код.`,
     };
 
     try {
