@@ -22,6 +22,8 @@ export class NotificationService {
       const existing = await this.prisma.userDevice.findUnique({
         where: { userId_deviceToken: { userId, deviceToken } },
       });
+      console.log(existing);
+      
       if (existing) {
         return this.prisma.userDevice.update({
           where: { userId_deviceToken: { userId, deviceToken } },

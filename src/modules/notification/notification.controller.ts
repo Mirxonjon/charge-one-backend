@@ -31,7 +31,9 @@ export class NotificationController {
   @Post('register-device')
   @ApiOperation({ summary: 'Register device token' })
   async registerDevice(@Req() req: any, @Body() dto: RegisterDeviceDto) {
+    console.log(dto, 'body');
     const userId = this.getUserIdFromReq(req);
+    
     return this.service.registerDevice(userId, dto.deviceToken, dto.platform);
   }
 

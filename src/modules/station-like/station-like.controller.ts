@@ -32,6 +32,8 @@ export class StationLikeController {
   @ApiResponse({ status: 200, type: StationLikeListResponseDto })
   async my(@Req() req: Request, @Query() query: ListQueryDto): Promise<StationLikeListResponseDto> {
     const userId = (req as any).user.sub as number;
+    console.log(userId);
+    
     const { page = 1, limit = 10 } = query;
     return this.service.myLikes(userId, page, limit);
   }

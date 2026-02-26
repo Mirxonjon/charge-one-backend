@@ -45,12 +45,15 @@ export class StationLikeService {
         where,
         include: {
           station: {
-            select: {
-              id: true,
-              title: true,
-              isActive: true,
-              latitude: true,
-              longitude: true,
+            include: {
+              operator: {
+                select: {
+                  title: true,
+                  color: true,
+                },
+              },
+              pricing: true,
+              connectors: true,
             },
           },
         },
