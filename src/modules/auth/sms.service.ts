@@ -8,8 +8,8 @@ export class SmsService {
     const url = 'https://gate.coachingzona.uz/send';
 
     const payload = {
-      phones: ["+998909378788"], // masalan: 998974409931
-      text: `Charge One — Код подтверждения для входа: ${code}. Никому не сообщайте этот код.`,
+      phones: [phone], // masalan: 998974409931
+      text: `Charge One — Код подтверждения: ${code}.`,
     };
 
     try {
