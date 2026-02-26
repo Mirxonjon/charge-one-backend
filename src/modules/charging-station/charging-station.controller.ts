@@ -42,7 +42,7 @@ export class ChargingStationController {
     required: false,
     enum: ['AC', 'DC', 'HYBRID', 'ULTRA'],
   })
-  findAll(@Query() query: FilterChargingStationDto) {
+  findAll( @Query() query: FilterChargingStationDto) {
     return this.service.findAll(query);
   }
 

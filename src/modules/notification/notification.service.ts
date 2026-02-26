@@ -1,6 +1,7 @@
 import { Injectable, NotFoundException, Logger } from '@nestjs/common';
 import { PrismaService } from '@/modules/prisma/prisma.service';
 import { FirebaseAdminService } from './firebase-admin.service';
+import * as admin from 'firebase-admin';
 
 export type NotificationPayload = {
   title: string;
@@ -12,126 +13,184 @@ export type NotificationPayload = {
 @Injectable()
 export class NotificationService {
   private readonly logger = new Logger(NotificationService.name);
+
   constructor(
-    private prisma: PrismaService,
-    private firebase: FirebaseAdminService
+    private readonly prisma: PrismaService,
+    private readonly firebase: FirebaseAdminService
   ) {}
 
-  async registerDevice(userId: number, deviceToken: string, platform: string) {
-    try {
-      const existing = await this.prisma.userDevice.findUnique({
-        where: { userId_deviceToken: { userId, deviceToken } },
-      });
-      console.log(existing);
+  // Helper: structured logging wrappers to ensure JSON-like output
+  private log(payload: Record<string, any>) {
+    this.logger.log(payload as any);
+  }
+  private warn(payload: Record<string, any>) {
+    this.logger.warn(payload as any);
+  }
+  private error(payload: Record<string, any>) {
+    this.logger.error(payload as any);
+  }
+  private debug(payload: Record<string, any>) {
+    this.logger.debug(payload as any);
+  }
 
-      if (existing) {
-        return this.prisma.userDevice.update({
-          where: { userId_deviceToken: { userId, deviceToken } },
-          data: { platform, isActive: true },
-        });
-      }
-      return await this.prisma.userDevice.create({
-        data: { userId, deviceToken, platform, isActive: true },
+  // Helper: normalize data to string key/value pairs as required by FCM
+  private toMessagingData(
+    data?: Record<string, any>
+  ): Record<string, string> | undefined {
+    if (!data) return undefined;
+    const entries = Object.entries(data).map(([k, v]) => [
+      String(k),
+      String(v ?? ''),
+    ]);
+    return Object.fromEntries(entries);
+  }
+
+  async registerDevice(userId: number, deviceToken: string, platform: string) {
+    this.log({ action: 'REGISTER_DEVICE', userId, platform });
+    try {
+      const result = await this.prisma.userDevice.upsert({
+        where: { deviceToken },
+        update: { userId, platform, isActive: true },
+        create: { userId, deviceToken, platform, isActive: true },
       });
+
+      this.log({
+        action: 'REGISTER_DEVICE_COMPLETED',
+        userId,
+        platform,
+        deviceToken,
+      });
+      return result;
     } catch (e: any) {
-      if (e.code === 'P2002') {
-        return this.prisma.userDevice.update({
-          where: { userId_deviceToken: { userId, deviceToken } },
-          data: { platform, isActive: true },
-        });
-      }
+      this.error({
+        action: 'REGISTER_DEVICE_ERROR',
+        userId,
+        platform,
+        deviceToken,
+        error: e?.message,
+        stack: e?.stack,
+      });
       throw e;
     }
   }
 
   async removeDevice(userId: number, deviceToken: string) {
-    const existing = await this.prisma.userDevice.findUnique({
-      where: { userId_deviceToken: { userId, deviceToken } },
-    });
-    if (!existing) return { success: true };
-    await this.prisma.userDevice.update({
-      where: { userId_deviceToken: { userId, deviceToken } },
-      data: { isActive: false },
-    });
-    return { success: true };
+    this.log({ action: 'REMOVE_DEVICE', userId });
+    try {
+      const existing = await this.prisma.userDevice.findUnique({
+        where: { deviceToken },
+      });
+
+      if (!existing || existing.userId !== userId) {
+        this.log({
+          action: 'REMOVE_DEVICE_SKIPPED',
+          reason: 'NOT_FOUND_OR_MISMATCH',
+          userId,
+          deviceToken,
+        });
+        return { success: true } as const;
+      }
+
+      await this.prisma.userDevice.update({
+        where: { deviceToken },
+        data: { isActive: false },
+      });
+      this.log({ action: 'REMOVE_DEVICE_COMPLETED', userId, deviceToken });
+      return { success: true } as const;
+    } catch (e: any) {
+      this.error({
+        action: 'REMOVE_DEVICE_ERROR',
+        userId,
+        deviceToken,
+        error: e?.message,
+        stack: e?.stack,
+      });
+      throw e;
+    }
   }
 
   async sendToUser(userId: number, payload: NotificationPayload) {
-    const devices = await this.prisma.userDevice.findMany({
-      where: { userId, isActive: true },
-      select: { deviceToken: true },
-    });
+    this.log({ action: 'SEND_TO_USER', userId, title: payload.title });
+    this.debug({ action: 'SEND_TO_USER_DEBUG', userId, payload });
+    const start = Date.now();
+    try {
+      const devices = await this.prisma.userDevice.findMany({
+        where: { userId, isActive: true },
+        select: { deviceToken: true },
+      });
 
-    // Save notification
-    await this.prisma.notification.create({
-      data: {
+      const deviceCount = devices.length;
+      this.log({ action: 'SEND_TO_USER_DEVICES', userId, deviceCount });
+
+      await this.prisma.notification.create({
+        data: {
+          userId,
+          title: payload.title,
+          body: payload.body,
+          type: payload.type,
+          data: payload.data as any,
+        },
+      });
+
+      if (deviceCount === 0) {
+        const durationMs = Date.now() - start;
+        this.log({
+          action: 'SEND_TO_USER_COMPLETED',
+          userId,
+          durationMs,
+          sentCount: 0,
+          deviceCount,
+        });
+        return { success: true, sent: 0 } as const;
+      }
+
+      const tokens = devices.map((d) => d.deviceToken);
+      const res = await this.sendMulticast(
+        tokens,
+        payload.title,
+        payload.body,
+        payload.data
+      );
+      const sentCount = res?.successCount ?? 0;
+      const durationMs = Date.now() - start;
+      this.log({
+        action: 'SEND_TO_USER_COMPLETED',
         userId,
-        title: payload.title,
-        body: payload.body,
-        type: payload.type,
-        data: payload.data as any,
-      },
-    });
-
-    if (devices.length === 0) return { success: true, sent: 0 };
-
-    const tokens = devices.map((d) => d.deviceToken);
-    const res = await this.sendMulticast(
-      tokens,
-      payload.title,
-      payload.body,
-      payload.data
-    );
-    return { success: true, sent: res?.successCount ?? 0 };
+        durationMs,
+        sentCount,
+        deviceCount,
+      });
+      return { success: true, sent: sentCount } as const;
+    } catch (e: any) {
+      this.error({
+        action: 'SEND_TO_USER_ERROR',
+        userId,
+        error: e?.message,
+        stack: e?.stack,
+      });
+      throw e;
+    }
   }
 
   async sendToMany(userIds: number[], payload: NotificationPayload) {
-    const devices = await this.prisma.userDevice.findMany({
-      where: { userId: { in: userIds }, isActive: true },
-      select: { deviceToken: true },
+    this.log({
+      action: 'SEND_TO_MANY',
+      userCount: userIds.length,
+      title: payload.title,
     });
+    this.debug({ action: 'SEND_TO_MANY_DEBUG', userIds, payload });
+    const start = Date.now();
+    try {
+      const devices = await this.prisma.userDevice.findMany({
+        where: { userId: { in: userIds }, isActive: true },
+        select: { deviceToken: true },
+      });
 
-    // Save notifications
-    await this.prisma.$transaction(
-      userIds.map((uid) =>
-        this.prisma.notification.create({
-          data: {
-            userId: uid,
-            title: payload.title,
-            body: payload.body,
-            type: payload.type,
-            data: payload.data as any,
-          },
-        })
-      )
-    );
-
-    if (devices.length === 0) return { success: true, sent: 0 };
-
-    const tokens = devices.map((d) => d.deviceToken);
-    const res = await this.sendMulticast(
-      tokens,
-      payload.title,
-      payload.body,
-      payload.data
-    );
-    return { success: true, sent: res?.successCount ?? 0 };
-  }
-
-  async broadcast(payload: NotificationPayload) {
-    const devices = await this.prisma.userDevice.findMany({
-      where: { isActive: true },
-      select: { deviceToken: true, userId: true },
-    });
-    console.log(devices);
-
-    await this.prisma.$transaction(
-      devices
-        .filter((d) => !!d.userId)
-        .map((d) =>
+      await this.prisma.$transaction(
+        userIds.map((uid) =>
           this.prisma.notification.create({
             data: {
-              userId: d.userId!,
+              userId: uid,
               title: payload.title,
               body: payload.body,
               type: payload.type,
@@ -139,32 +198,136 @@ export class NotificationService {
             },
           })
         )
-    );
+      );
 
-    if (devices.length === 0) return { success: true, sent: 0 };
+      const deviceCount = devices.length;
+      if (deviceCount === 0) {
+        const durationMs = Date.now() - start;
+        this.log({
+          action: 'SEND_TO_MANY_COMPLETED',
+          durationMs,
+          sentCount: 0,
+          userCount: userIds.length,
+          deviceCount,
+        });
+        return { success: true, sent: 0 } as const;
+      }
 
-    const tokens = devices.map((d) => d.deviceToken);
-    const res = await this.sendMulticast(
-      tokens,
-      payload.title,
-      payload.body,
-      payload.data
-    );
-    return { success: true, sent: res?.successCount ?? 0 };
+      const tokens = devices.map((d) => d.deviceToken);
+      const res = await this.sendMulticast(
+        tokens,
+        payload.title,
+        payload.body,
+        payload.data
+      );
+      const sentCount = res?.successCount ?? 0;
+      const durationMs = Date.now() - start;
+      this.log({
+        action: 'SEND_TO_MANY_COMPLETED',
+        durationMs,
+        sentCount,
+        userCount: userIds.length,
+        deviceCount,
+      });
+      return { success: true, sent: sentCount } as const;
+    } catch (e: any) {
+      this.error({
+        action: 'SEND_TO_MANY_ERROR',
+        userCount: userIds.length,
+        error: e?.message,
+        stack: e?.stack,
+      });
+      throw e;
+    }
+  }
+
+  async broadcast(payload: NotificationPayload) {
+    this.log({ action: 'BROADCAST', title: payload.title });
+    this.debug({ action: 'BROADCAST_DEBUG', payload });
+    const start = Date.now();
+    try {
+      const devices = await this.prisma.userDevice.findMany({
+        where: { isActive: true },
+        select: { deviceToken: true, userId: true },
+      });
+
+      const totalDevices = devices.length;
+      const userIds = devices
+        .filter((d) => !!d.userId)
+        .map((d) => d.userId!) as number[];
+      const uniqueUsers = new Set(userIds);
+      const totalUsers = uniqueUsers.size;
+
+      await this.prisma.$transaction(
+        Array.from(uniqueUsers).map((uid) =>
+          this.prisma.notification.create({
+            data: {
+              userId: uid,
+              title: payload.title,
+              body: payload.body,
+              type: payload.type,
+              data: payload.data as any,
+            },
+          })
+        )
+      );
+
+      if (totalDevices === 0) {
+        const durationMs = Date.now() - start;
+        this.log({
+          action: 'BROADCAST_COMPLETED',
+          durationMs,
+          totalDevices,
+          totalUsers,
+          successCount: 0,
+          failureCount: 0,
+        });
+        return { success: true, sent: 0 } as const;
+      }
+
+      const tokens = devices.map((d) => d.deviceToken);
+      const res = await this.sendMulticast(
+        tokens,
+        payload.title,
+        payload.body,
+        payload.data
+      );
+      const durationMs = Date.now() - start;
+      const successCount = res?.successCount ?? 0;
+      const failureCount = res?.failureCount ?? 0;
+
+      this.log({
+        action: 'BROADCAST_COMPLETED',
+        durationMs,
+        totalDevices,
+        totalUsers,
+        successCount,
+        failureCount,
+      });
+
+      return { success: true, sent: successCount } as const;
+    } catch (e: any) {
+      this.error({
+        action: 'BROADCAST_ERROR',
+        error: e?.message,
+        stack: e?.stack,
+      });
+      throw e;
+    }
   }
 
   async listMy(userId: number, page = 1, limit = 10) {
-    const [items, total] = await this.prisma.$transaction([
-      this.prisma.notification.findMany({
-        where: { userId },
-        orderBy: { createdAt: 'desc' },
-        skip: (page - 1) * limit,
-        take: limit,
-      }),
-      this.prisma.notification.count({ where: { userId } }),
-    ]);
-
-    return { items, total, page, limit };
+    return this.prisma
+      .$transaction([
+        this.prisma.notification.findMany({
+          where: { userId },
+          orderBy: { createdAt: 'desc' },
+          skip: (page - 1) * limit,
+          take: limit,
+        }),
+        this.prisma.notification.count({ where: { userId } }),
+      ])
+      .then(([items, total]) => ({ items, total, page, limit }));
   }
 
   async markRead(userId: number, id: number) {
@@ -183,29 +346,43 @@ export class NotificationService {
     body: string,
     data?: Record<string, any>
   ) {
-    if (!this.firebase.messaging) return null;
+    this.log({ action: 'SEND_PUSH', token, title });
+    this.debug({
+      action: 'SEND_PUSH_DEBUG',
+      token,
+      payload: { title, body, data },
+    });
+
+    if (!this.firebase.messaging) {
+      this.warn({
+        action: 'SEND_PUSH_SKIPPED',
+        reason: 'FIREBASE_NOT_INITIALIZED',
+        token,
+      });
+      return null;
+    }
+
     try {
-      const message: any = {
+      const message: admin.messaging.TokenMessage = {
         token,
         notification: { title, body },
-        data: data
-          ? Object.fromEntries(
-              Object.entries(data).map(([k, v]) => [String(k), String(v)])
-            )
-          : undefined,
-        android: {
-          notification: { sound: 'default' },
-        },
-        apns: {
-          payload: { aps: { sound: 'default' } },
-        },
+        data: this.toMessagingData(data),
+        android: { notification: { sound: 'default' } },
+        apns: { payload: { aps: { sound: 'default' } } },
       };
-      const response = await this.firebase.messaging.send(message);
 
-      console.log('✅ FCM SUCCESS:', response);
+      const response = await this.firebase.messaging.send(message);
+      this.log({ action: 'SEND_PUSH_COMPLETED', token, messageId: response });
       return response;
-    } catch (e) {
-      this.logger.error('sendPush error', e as any);
+    } catch (e: any) {
+      const code = e?.code;
+      this.error({
+        action: 'SEND_PUSH_ERROR',
+        token,
+        error: e?.message,
+        code,
+        stack: e?.stack,
+      });
       return null;
     }
   }
@@ -216,50 +393,88 @@ export class NotificationService {
     body: string,
     data?: Record<string, any>
   ) {
-    if (!this.firebase.messaging) return null;
+    this.log({ action: 'SEND_MULTICAST', tokenCount: tokens.length, title });
+    this.debug({
+      action: 'SEND_MULTICAST_DEBUG',
+      tokensPreview: tokens.slice(0, 5),
+      payload: { title, body, data },
+    });
+
+    if (!this.firebase.messaging) {
+      this.warn({
+        action: 'SEND_MULTICAST_SKIPPED',
+        reason: 'FIREBASE_NOT_INITIALIZED',
+        tokenCount: tokens.length,
+      });
+      return null;
+    }
 
     try {
-      const message: any = {
+      const message: admin.messaging.MulticastMessage = {
         tokens,
         notification: { title, body },
-        data: data
-          ? Object.fromEntries(
-              Object.entries(data).map(([k, v]) => [String(k), String(v)])
-            )
-          : undefined,
-        android: {
-          notification: { sound: 'default' },
-        },
-        apns: {
-          payload: { aps: { sound: 'default' } },
-        },
+        data: this.toMessagingData(data),
+        android: { notification: { sound: 'default' } },
+        apns: { payload: { aps: { sound: 'default' } } },
       };
 
       const response =
         await this.firebase.messaging.sendEachForMulticast(message);
-      console.log(response, 'response');
 
-      this.logger.log(
-        `FCM Multicast: success=${response.successCount}, failure=${response.failureCount}`
-      );
+      this.log({
+        action: 'SEND_MULTICAST_COMPLETED',
+        successCount: response.successCount,
+        failureCount: response.failureCount,
+      });
 
       if (response.failureCount > 0) {
-        response.responses.forEach((resp, idx) => {
-          if (!resp.success) {
-            this.logger.error(
-              `Token failed: ${tokens[idx]} | Error: ${resp.error?.message}`
-            );
+        await Promise.all(
+          response.responses.map(async (resp, idx) => {
+            if (resp.success) return;
+            const token = tokens[idx];
+            const code = (resp.error as any)?.code as string | undefined;
+            const message = resp.error?.message;
 
-            this.logger.error(
-              `Token failed: ${tokens[idx]} | Code: ${resp.error?.code} | Message: ${resp.error?.message}`
-            );
-          }
-        });
+            this.error({
+              action: 'SEND_MULTICAST_ITEM_ERROR',
+              token,
+              code,
+              message,
+            });
+
+            if (
+              code === 'messaging/registration-token-not-registered' ||
+              code === 'messaging/invalid-registration-token'
+            ) {
+              try {
+                await this.prisma.userDevice.update({
+                  where: { deviceToken: token },
+                  data: { isActive: false },
+                });
+                this.warn({ action: 'TOKEN_DEACTIVATED', token, reason: code });
+              } catch (dbErr: any) {
+                this.error({
+                  action: 'TOKEN_DEACTIVATE_DB_ERROR',
+                  token,
+                  reason: code,
+                  error: dbErr?.message,
+                  stack: dbErr?.stack,
+                });
+              }
+            }
+          })
+        );
       }
 
       return response;
-    } catch (e) {
-      this.logger.error('sendMulticast error', e as any);
+    } catch (e: any) {
+      const code = e?.code;
+      this.error({
+        action: 'SEND_MULTICAST_ERROR',
+        error: e?.message,
+        code,
+        stack: e?.stack,
+      });
       return null;
     }
   }

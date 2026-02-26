@@ -425,13 +425,11 @@ model Notification {
 model UserDevice {
   id          Int      @id @default(autoincrement())
   userId      Int
-  deviceToken String
+  deviceToken String   @unique
   platform    String   // ANDROID | IOS
   isActive    Boolean  @default(true)
   createdAt   DateTime @default(now())
 
   user User @relation(fields: [userId], references: [id])
 
-  @@unique([userId, deviceToken])
-  @@index([userId])
 }

@@ -32,24 +32,7 @@ import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 @UseGuards(JwtAuthGuard)
 @Controller('notifications')
 export class NotificationController {
-  constructor(
-    private service: NotificationService,
-    private jwt: JwtService
-  ) {}
-
-  private getUserIdFromReq(req: any): number {
-    if (req.user?.id) return Number(req.user.id);
-    if (req.user?.user_id) return Number(req.user.user_id);
-    const authHeader =
-      req.headers['authorization'] || req.headers['Authorization'];
-    if (authHeader && String(authHeader).startsWith('Bearer ')) {
-      const token = String(authHeader).split(' ')[1];
-      const payload: any = this.jwt.decode(token);
-      if (payload?.user_id) return Number(payload.user_id);
-      if (payload?.id) return Number(payload.id);
-    }
-    return NaN;
-  }
+  constructor(private service: NotificationService) {}
 
   @Post('register-device')
   @ApiOperation({ summary: 'Register device token' })
@@ -69,7 +52,7 @@ export class NotificationController {
     @Headers('device-token') deviceTokenHeader: string,
     @Body('deviceToken') deviceTokenBody?: string
   ) {
-    const userId = this.getUserIdFromReq(req);
+    const userId = (req as any).user.sub as number;
     const token = deviceTokenBody || deviceTokenHeader;
     return this.service.removeDevice(userId, token);
   }
@@ -99,7 +82,7 @@ export class NotificationController {
   @Get('my')
   @ApiOperation({ summary: 'My notification history' })
   async my(@Req() req: any, @Query() query: ListQueryDto) {
-    const userId = this.getUserIdFromReq(req);
+    const userId = (req as any).user.sub as number;
     const { page = 1, limit = 10 } = query;
     return this.service.listMy(userId, page, limit);
   }
@@ -107,7 +90,7 @@ export class NotificationController {
   @Patch(':id/read')
   @ApiOperation({ summary: 'Mark notification as read' })
   async markRead(@Req() req: any, @Param('id') id: string) {
-    const userId = this.getUserIdFromReq(req);
+    const userId = (req as any).user.sub as number;
     return this.service.markRead(userId, Number(id));
   }
 }
