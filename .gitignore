@@ -2,6 +2,7 @@
 /dist
 /node_modules
 /config/google-service-account.json
+/firebase-key.json
 
 
 # Logs

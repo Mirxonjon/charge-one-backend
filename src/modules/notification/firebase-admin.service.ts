@@ -1,5 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
 import * as admin from 'firebase-admin';
+import * as path from 'path';
 
 @Injectable()
 export class FirebaseAdminService {
@@ -19,9 +20,12 @@ export class FirebaseAdminService {
 
       const credsPath = process.env.FIREBASE_CREDENTIALS_PATH;
       if (credsPath) {
+        const fullPath = path.resolve(process.cwd(), credsPath);
+
         admin.initializeApp({
-          credential: admin.credential.cert(require(credsPath)),
+          credential: admin.credential.cert(require(fullPath)),
         });
+
         this.initialized = true;
         this.logger.log('Firebase initialized with credentials file');
         return;
@@ -46,7 +50,9 @@ export class FirebaseAdminService {
         this.initialized = true;
         this.logger.log('Firebase initialized with env credentials');
       } else {
-        this.logger.warn('Firebase credentials are not set. Push will be disabled.');
+        this.logger.warn(
+          'Firebase credentials are not set. Push will be disabled.'
+        );
       }
     } catch (e) {
       this.logger.error('Failed to initialize Firebase', e as any);

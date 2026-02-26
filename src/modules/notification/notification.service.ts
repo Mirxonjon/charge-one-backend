@@ -14,7 +14,7 @@ export class NotificationService {
   private readonly logger = new Logger(NotificationService.name);
   constructor(
     private prisma: PrismaService,
-    private firebase: FirebaseAdminService,
+    private firebase: FirebaseAdminService
   ) {}
 
   async registerDevice(userId: number, deviceToken: string, platform: string) {
@@ -23,7 +23,7 @@ export class NotificationService {
         where: { userId_deviceToken: { userId, deviceToken } },
       });
       console.log(existing);
-      
+
       if (existing) {
         return this.prisma.userDevice.update({
           where: { userId_deviceToken: { userId, deviceToken } },
@@ -76,7 +76,12 @@ export class NotificationService {
     if (devices.length === 0) return { success: true, sent: 0 };
 
     const tokens = devices.map((d) => d.deviceToken);
-    const res = await this.sendMulticast(tokens, payload.title, payload.body, payload.data);
+    const res = await this.sendMulticast(
+      tokens,
+      payload.title,
+      payload.body,
+      payload.data
+    );
     return { success: true, sent: res?.successCount ?? 0 };
   }
 
@@ -97,14 +102,19 @@ export class NotificationService {
             type: payload.type,
             data: payload.data as any,
           },
-        }),
-      ),
+        })
+      )
     );
 
     if (devices.length === 0) return { success: true, sent: 0 };
 
     const tokens = devices.map((d) => d.deviceToken);
-    const res = await this.sendMulticast(tokens, payload.title, payload.body, payload.data);
+    const res = await this.sendMulticast(
+      tokens,
+      payload.title,
+      payload.body,
+      payload.data
+    );
     return { success: true, sent: res?.successCount ?? 0 };
   }
 
@@ -113,6 +123,7 @@ export class NotificationService {
       where: { isActive: true },
       select: { deviceToken: true, userId: true },
     });
+    console.log(devices);
 
     await this.prisma.$transaction(
       devices
@@ -126,14 +137,19 @@ export class NotificationService {
               type: payload.type,
               data: payload.data as any,
             },
-          }),
-        ),
+          })
+        )
     );
 
     if (devices.length === 0) return { success: true, sent: 0 };
 
     const tokens = devices.map((d) => d.deviceToken);
-    const res = await this.sendMulticast(tokens, payload.title, payload.body, payload.data);
+    const res = await this.sendMulticast(
+      tokens,
+      payload.title,
+      payload.body,
+      payload.data
+    );
     return { success: true, sent: res?.successCount ?? 0 };
   }
 
@@ -153,17 +169,30 @@ export class NotificationService {
 
   async markRead(userId: number, id: number) {
     const notif = await this.prisma.notification.findUnique({ where: { id } });
-    if (!notif || notif.userId !== userId) throw new NotFoundException('Notification not found');
-    return this.prisma.notification.update({ where: { id }, data: { isRead: true } });
+    if (!notif || notif.userId !== userId)
+      throw new NotFoundException('Notification not found');
+    return this.prisma.notification.update({
+      where: { id },
+      data: { isRead: true },
+    });
   }
 
-  async sendPush(token: string, title: string, body: string, data?: Record<string, any>) {
+  async sendPush(
+    token: string,
+    title: string,
+    body: string,
+    data?: Record<string, any>
+  ) {
     if (!this.firebase.messaging) return null;
     try {
       const message: any = {
         token,
         notification: { title, body },
-        data: data ? Object.fromEntries(Object.entries(data).map(([k, v]) => [String(k), String(v)])) : undefined,
+        data: data
+          ? Object.fromEntries(
+              Object.entries(data).map(([k, v]) => [String(k), String(v)])
+            )
+          : undefined,
         android: {
           notification: { sound: 'default' },
         },
@@ -171,20 +200,33 @@ export class NotificationService {
           payload: { aps: { sound: 'default' } },
         },
       };
-      return await this.firebase.messaging.send(message);
+      const response = await this.firebase.messaging.send(message);
+
+      console.log('✅ FCM SUCCESS:', response);
+      return response;
     } catch (e) {
       this.logger.error('sendPush error', e as any);
       return null;
     }
   }
 
-  async sendMulticast(tokens: string[], title: string, body: string, data?: Record<string, any>) {
+  async sendMulticast(
+    tokens: string[],
+    title: string,
+    body: string,
+    data?: Record<string, any>
+  ) {
     if (!this.firebase.messaging) return null;
+
     try {
       const message: any = {
         tokens,
         notification: { title, body },
-        data: data ? Object.fromEntries(Object.entries(data).map(([k, v]) => [String(k), String(v)])) : undefined,
+        data: data
+          ? Object.fromEntries(
+              Object.entries(data).map(([k, v]) => [String(k), String(v)])
+            )
+          : undefined,
         android: {
           notification: { sound: 'default' },
         },
@@ -192,7 +234,30 @@ export class NotificationService {
           payload: { aps: { sound: 'default' } },
         },
       };
-      return await this.firebase.messaging.sendEachForMulticast(message);
+
+      const response =
+        await this.firebase.messaging.sendEachForMulticast(message);
+      console.log(response, 'response');
+
+      this.logger.log(
+        `FCM Multicast: success=${response.successCount}, failure=${response.failureCount}`
+      );
+
+      if (response.failureCount > 0) {
+        response.responses.forEach((resp, idx) => {
+          if (!resp.success) {
+            this.logger.error(
+              `Token failed: ${tokens[idx]} | Error: ${resp.error?.message}`
+            );
+
+            this.logger.error(
+              `Token failed: ${tokens[idx]} | Code: ${resp.error?.code} | Message: ${resp.error?.message}`
+            );
+          }
+        });
+      }
+
+      return response;
     } catch (e) {
       this.logger.error('sendMulticast error', e as any);
       return null;
