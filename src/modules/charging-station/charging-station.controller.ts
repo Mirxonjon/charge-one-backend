@@ -1,8 +1,9 @@
-import { Body, Controller, Delete, Get, HttpCode, HttpStatus, Param, ParseIntPipe, Patch, Post, Query, UseGuards } from '@nestjs/common';
+import { Body, Controller, Delete, Get, HttpCode, HttpStatus, Param, ParseIntPipe, Patch, Post, Query, UseGuards, Req } from '@nestjs/common';
 import { ApiBearerAuth, ApiBody, ApiOperation, ApiQuery, ApiResponse, ApiTags } from '@nestjs/swagger';
 import { ChargingStationService } from './charging-station.service';
 import { JwtAuthGuard } from '@/modules/auth/guards/jwt-auth.guard';
 import { RolesGuard } from '@/modules/auth/guards/roles.guard';
+import { OptionalJwtAuthGuard } from '@/modules/auth/guards/optional-jwt-auth.guard';
 import { Roles } from '@/modules/auth/decorators/roles.decorator';
 import { CreateChargingStationDto } from '@/types/charging-station/create-charging-station.dto';
 import { UpdateChargingStationDto } from '@/types/charging-station/update-charging-station.dto';
@@ -25,6 +26,7 @@ export class ChargingStationController {
   }
 
   @Get()
+  @UseGuards(OptionalJwtAuthGuard)
   @ApiOperation({ summary: 'List charging stations' })
   @ApiQuery({ name: 'page', required: false, example: 1 })
   @ApiQuery({ name: 'limit', required: false, example: 10 })
@@ -42,8 +44,11 @@ export class ChargingStationController {
     required: false,
     enum: ['AC', 'DC', 'HYBRID', 'ULTRA'],
   })
-  findAll( @Query() query: FilterChargingStationDto) {
-    return this.service.findAll(query);
+  findAll(@Query() query: FilterChargingStationDto, @Req() req: any) {
+    const userId: number | undefined = req?.user?.sub ? Number(req.user.sub) : undefined;
+    console.log(userId);
+    
+    return this.service.findAll(query, userId);
   }
 
   @Get(':id')

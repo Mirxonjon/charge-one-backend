@@ -13,7 +13,7 @@ export class ChargingStationService {
     return created;
   }
 
-  async findAll(query: FilterChargingStationDto) {
+  async findAll(query: FilterChargingStationDto, userId?: number) {
     const {
       page = 1,
       limit = 10,
@@ -134,6 +134,25 @@ export class ChargingStationService {
 
       stations.sort((a, b) => a.distanceKm - b.distanceKm);
     }
+
+    let likedStationIds: number[] = [];
+
+    if (userId) {
+      const likes = await this.prisma.stationLike.findMany({
+        where: {
+          userId,
+          stationId: { in: stations.map((s) => s.id) },
+        },
+        select: { stationId: true },
+      });
+
+      likedStationIds = likes.map((l) => l.stationId);
+    }
+
+    stations = stations.map((s) => ({
+      ...s,
+      isLiked: userId ? likedStationIds.includes(s.id) : false,
+    }));
 
     const total = stations.length;
 
