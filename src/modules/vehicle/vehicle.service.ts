@@ -8,6 +8,8 @@ import { CreateCarDto } from '@/types/vehicle/create-car.dto';
 import { UpdateCarDto } from '@/types/vehicle/update-car.dto';
 import { CarFilterDto } from '@/types/vehicle/car-filter.dto';
 import { AddUserCarDto } from '@/types/vehicle/add-user-car.dto';
+import * as fs from 'fs';
+import * as path from 'path';
 
 @Injectable()
 export class VehicleService {
@@ -101,15 +103,15 @@ export class VehicleService {
   async addToUser(userId: number, dto: AddUserCarDto) {
     let carId = dto.carId;
 
-        if (dto.vin) {
-          const existingVin = await this.prisma.car.findUnique({
-            where: { vin: dto.vin },
-          });
+    if (dto.vin) {
+      const existingVin = await this.prisma.userCar.findUnique({
+        where: { vin: dto.vin },
+      });
 
-          if (existingVin) {
-            throw new BadRequestException('Car with this VIN already exists');
-          }
-        }
+      if (existingVin) {
+        throw new BadRequestException('Car with this VIN already exists');
+      }
+    }
 
     if (dto.plateNumber) {
       const existingPlate = await this.prisma.userCar.findUnique({
@@ -133,7 +135,6 @@ export class VehicleService {
           brand: dto.brand,
           model: dto.model,
           year: dto.year ?? undefined,
-          vin: dto.vin ?? undefined,
           batterySize: (dto as any).batterySize ?? undefined,
           rangeKm: (dto as any).rangeKm ?? undefined,
           createdById: userId,
@@ -152,6 +153,7 @@ export class VehicleService {
         data: {
           userId,
           carId,
+          vin: dto.vin ?? undefined,
           plateNumber: dto.plateNumber ?? undefined,
           color: dto.color ?? undefined,
         },
@@ -183,77 +185,55 @@ export class VehicleService {
 
   // External sync
   async syncExternal() {
-    // Replace with real external API call
-    const externalCars = [
-      {
-        brand: 'Tesla',
-        model: 'Model Y',
-        year: 2022,
-        batterySize: 75,
-        rangeKm: 505,
-        imageUrl: undefined,
-        vin: undefined,
-      },
-      {
-        brand: 'BYD',
-        model: 'Atto 3',
-        year: 2023,
-        batterySize: 60.5,
-        rangeKm: 420,
-        imageUrl: undefined,
-        vin: undefined,
-      },
-    ];
+    const filePath = path.join(process.cwd(), 'ev-cars.json');
+    const raw = fs.readFileSync(filePath, 'utf-8');
+    const data = JSON.parse(raw);
 
-    let created = 0,
-      updated = 0;
+    let created = 0;
+    let updated = 0;
 
-    for (const c of externalCars) {
-      const where = c.vin
-        ? { vin: c.vin }
-        : ({
-            brand_model_year: {
-              brand: c.brand,
-              model: c.model,
-              year: c.year ?? 0,
+    for (const brandBlock of data) {
+      const brandName = brandBlock.brand;
+      const logoUrl = brandBlock.logo_url;
+
+      for (const m of brandBlock.models) {
+        const mapped = {
+          brand: brandName,
+          model: m.model,
+          batterySize: m.battery_capacity_kWh ?? undefined,
+          imageUrl: logoUrl ?? undefined,
+        };
+
+        const existing = await this.prisma.car.findFirst({
+          where: {
+            brand: mapped.brand,
+            model: mapped.model,
+          },
+        });
+
+        if (existing) {
+          if (existing.createdByType !== 'SYSTEM') continue;
+
+          await this.prisma.car.update({
+            where: { id: existing.id },
+            data: {
+              batterySize: mapped.batterySize,
+              imageUrl: mapped.imageUrl,
             },
-          } as any);
-      const existing = await this.prisma.car.findFirst({
-        where: c.vin
-          ? { vin: c.vin }
-          : { brand: c.brand, model: c.model, year: c.year ?? undefined },
-      });
-      if (existing) {
-        // Do not overwrite ADMIN or USER-created cars
-        if (existing.createdByType !== 'SYSTEM') {
-          continue;
+          });
+
+          updated++;
+        } else {
+          await this.prisma.car.create({
+            data: {
+              ...mapped,
+              createdByType: 'SYSTEM',
+              createdById: null,
+            },
+          });
+
+          created++;
         }
-        await this.prisma.car.update({
-          where: { id: existing.id },
-          data: {
-            batterySize: c.batterySize,
-            rangeKm: c.rangeKm,
-            imageUrl: c.imageUrl,
-            createdByType: 'SYSTEM' as any,
-            createdById: null,
-          },
-        });
-        updated++;
-      } else {
-        await this.prisma.car.create({
-          data: {
-            brand: c.brand,
-            model: c.model,
-            year: c.year ?? undefined,
-            vin: c.vin ?? undefined,
-            batterySize: c.batterySize ?? undefined,
-            rangeKm: c.rangeKm ?? undefined,
-            imageUrl: c.imageUrl ?? undefined,
-            createdByType: 'SYSTEM' as any,
-            createdById: null,
-          },
-        });
-        created++;
       }
     }
 

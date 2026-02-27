@@ -26,10 +26,10 @@ export class CreateCarDto {
   @Max(2100)
   year?: number;
 
-  @ApiPropertyOptional({ example: '5YJ3E1EA7JF000000' })
-  @IsOptional()
-  @IsString()
-  vin?: string;
+  // @ApiPropertyOptional({ example: '5YJ3E1EA7JF000000' })
+  // @IsOptional()
+  // @IsString()
+  // vin?: string;
 
   @ApiPropertyOptional({ example: 82.0 })
   @IsOptional()
