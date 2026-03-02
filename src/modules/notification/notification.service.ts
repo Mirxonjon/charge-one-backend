@@ -122,15 +122,15 @@ export class NotificationService {
       const deviceCount = devices.length;
       this.log({ action: 'SEND_TO_USER_DEVICES', userId, deviceCount });
 
-      await this.prisma.notification.create({
-        data: {
-          userId,
-          title: payload.title,
-          body: payload.body,
-          type: payload.type,
-          data: payload.data as any,
-        },
-      });
+      // await this.prisma.notification.create({
+      //   data: {
+      //     userId,
+      //     title: payload.title,
+      //     body: payload.body,
+      //     type: payload.type,
+      //     data: payload.data as any,
+      //   },
+      // });
 
       if (deviceCount === 0) {
         const durationMs = Date.now() - start;
@@ -257,7 +257,7 @@ export class NotificationService {
         .map((d) => d.userId!) as number[];
       const uniqueUsers = new Set(userIds);
       const totalUsers = uniqueUsers.size;
-
+      
       await this.prisma.$transaction(
         Array.from(uniqueUsers).map((uid) =>
           this.prisma.notification.create({

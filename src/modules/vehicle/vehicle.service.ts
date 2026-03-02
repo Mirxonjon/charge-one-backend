@@ -202,6 +202,8 @@ export class VehicleService {
           model: m.model,
           batterySize: m.battery_capacity_kWh ?? undefined,
           imageUrl: logoUrl ?? undefined,
+          rangeKm: m.rangeKm ?? undefined,
+          year: m.year ?? undefined,
         };
 
         const existing = await this.prisma.car.findFirst({
