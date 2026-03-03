@@ -30,7 +30,7 @@ import { LegalModule } from './modules/legal/legal.module';
 import { DiscountModule } from './modules/discount/discount.module';
 import { StationLikeModule } from './modules/station-like/station-like.module';
 import { NotificationModule } from './modules/notification/notification.module';
-
+import { ConnectorTypeModule } from './modules/connector-type/connector-type.module';
 @Module({
   imports: [
     ConfigModule.forRoot({
@@ -55,6 +55,7 @@ import { NotificationModule } from './modules/notification/notification.module';
     OperatorModule,
     ChargingStationModule,
     ConnectorModule,
+    ConnectorTypeModule,
     ConnectorStatusLogModule,
     StationPricingModule,
     ChargingSessionModule,

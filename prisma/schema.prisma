@@ -25,7 +25,6 @@ enum PaymentMethod {
   CARD
 }
 
-
 model Role {
   id    Int    @id @default(autoincrement())
   name  String @unique
@@ -33,41 +32,41 @@ model Role {
 }
 
 model User {
-  id             Int       @id @default(autoincrement())
-  phone          String    @unique
-  password       String?
-  firstName      String?
-  lastName       String?
-  wasBorn        DateTime?
-  isVerified     Boolean   @default(false)
-  roleId         Int
-  role           Role      @relation(fields: [roleId], references: [id])
-  sessions       Session[]
-  otpCodes       OtpCode[]
-  userCars       UserCar[]
-  Cars           Car[]
-  Wallet         Wallet[]
-  StationLike    StationLike[]
-  Notification   Notification[]
-  UserDevice     UserDevice[]
+  id           Int            @id @default(autoincrement())
+  phone        String         @unique
+  password     String?
+  firstName    String?
+  lastName     String?
+  wasBorn      DateTime?
+  isVerified   Boolean        @default(false)
+  roleId       Int
+  role         Role           @relation(fields: [roleId], references: [id])
+  sessions     Session[]
+  otpCodes     OtpCode[]
+  userCars     UserCar[]
+  Cars         Car[]
+  Wallet       Wallet[]
+  StationLike  StationLike[]
+  Notification Notification[]
+  UserDevice   UserDevice[]
 
-  ChargingSession  ChargingSession[]
-  resetTokens    PasswordResetToken[]
+  ChargingSession    ChargingSession[]
+  resetTokens        PasswordResetToken[]
   registrationTokens RegistrationToken[]
-  createdAt      DateTime  @default(now())
-  updatedAt      DateTime  @updatedAt
+  createdAt          DateTime             @default(now())
+  updatedAt          DateTime             @updatedAt
 }
 
 model OtpCode {
-  id            Int       @id @default(autoincrement())
+  id            Int      @id @default(autoincrement())
   code          String
   phone         String
   userId        Int?
-  user          User?     @relation(fields: [userId], references: [id])
+  user          User?    @relation(fields: [userId], references: [id])
   expiresAt     DateTime
-  isUsed        Boolean   @default(false)
-  attemptsCount Int       @default(0)
-  createdAt     DateTime  @default(now())
+  isUsed        Boolean  @default(false)
+  attemptsCount Int      @default(0)
+  createdAt     DateTime @default(now())
 
   @@index([phone])
   @@index([userId])
@@ -77,7 +76,7 @@ model RegistrationToken {
   id        Int      @id @default(autoincrement())
   userId    Int
   user      User     @relation(fields: [userId], references: [id])
-  token     String   // hashed
+  token     String // hashed
   expiresAt DateTime
   createdAt DateTime @default(now())
 
@@ -88,7 +87,7 @@ model PasswordResetToken {
   id        Int      @id @default(autoincrement())
   userId    Int
   user      User     @relation(fields: [userId], references: [id])
-  token     String   // hashed
+  token     String // hashed
   expiresAt DateTime
   createdAt DateTime @default(now())
 
@@ -102,20 +101,20 @@ enum CarCreatedByType {
 }
 
 model Car {
-  id           Int       @id @default(autoincrement())
-  createdById  Int?
-  createdBy    User?     @relation(fields: [createdById], references: [id])
+  id            Int              @id @default(autoincrement())
+  createdById   Int?
+  createdBy     User?            @relation(fields: [createdById], references: [id])
   createdByType CarCreatedByType @default(SYSTEM)
 
-  brand        String
-  model        String
-  year         Int?
-  batterySize  Float?
-  rangeKm      Int?
-  imageUrl     String?
-  createdAt    DateTime  @default(now())
-  updatedAt    DateTime  @updatedAt
-  userCars     UserCar[]
+  brand       String
+  model       String
+  year        Int?
+  batterySize Float?
+  rangeKm     Int?
+  imageUrl    String?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  userCars    UserCar[]
 
   @@index([brand])
   @@index([model])
@@ -129,7 +128,7 @@ model UserCar {
   userId      Int
   carId       Int
   plateNumber String?  @unique
-  vin         String?   @unique
+  vin         String?  @unique
   color       String?
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
@@ -142,15 +141,15 @@ model UserCar {
 }
 
 model Session {
-  id           Int       @id @default(autoincrement())
+  id           Int      @id @default(autoincrement())
   userId       Int
-  user         User      @relation(fields: [userId], references: [id])
-  refreshToken String    // store hashed
+  user         User     @relation(fields: [userId], references: [id])
+  refreshToken String // store hashed
   ipAddress    String?
   userAgent    String?
   expiresAt    DateTime
-  createdAt    DateTime  @default(now())
-  updatedAt    DateTime  @updatedAt
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
 
   @@index([userId])
 }
@@ -173,6 +172,7 @@ enum PayoutStatus {
   PAID
   FAILED
 }
+
 enum StationPowerType {
   AC
   DC
@@ -181,91 +181,103 @@ enum StationPowerType {
 }
 
 model Operator {
-  id           Int                @id @default(autoincrement())
-  title        String
-  color        String?
-  contact      String?
-  bankName     String?
-  bankAccount  String?
-  bankMfo      String?
-  stations     ChargingStation[]
-  payouts      OperatorPayout[]
-  createdAt    DateTime           @default(now())
-  updatedAt    DateTime           @updatedAt
+  id          Int               @id @default(autoincrement())
+  title       String
+  color       String?
+  contact     String?
+  bankName    String?
+  bankAccount String?
+  bankMfo     String?
+  stations    ChargingStation[]
+  payouts     OperatorPayout[]
+  createdAt   DateTime          @default(now())
+  updatedAt   DateTime          @updatedAt
 
   @@index([title])
 }
 
 model ChargingStation {
-  id           Int          @id @default(autoincrement())
+  id           Int              @id @default(autoincrement())
   operatorId   Int
-  operator     Operator     @relation(fields: [operatorId], references: [id])
+  operator     Operator         @relation(fields: [operatorId], references: [id])
   title        String
   address      String?
   latitude     Float
   longitude    Float
   powerType    StationPowerType
-  isActive     Boolean      @default(true)
+  isActive     Boolean          @default(true)
   workingHours String?
   Discount     Discount?
   connectors   Connector[]
   pricing      StationPricing?
   StationLike  StationLike[]
-  createdAt    DateTime     @default(now())
-  updatedAt    DateTime     @updatedAt
+  createdAt    DateTime         @default(now())
+  updatedAt    DateTime         @updatedAt
 
   @@index([operatorId])
 }
 
 model Connector {
-  id           Int               @id @default(autoincrement())
-  stationId    Int
-  station      ChargingStation   @relation(fields: [stationId], references: [id])
-  type         String
-  powerKw      Float
-  status       ConnectorStatus   @default(AVAILABLE)
-  sessions     ChargingSession[]
-  statusLogs   ConnectorStatusLog[]
-  createdAt    DateTime          @default(now())
-  updatedAt    DateTime          @updatedAt
+  id          Int                  @id @default(autoincrement())
+  stationId   Int
+  station     ChargingStation      @relation(fields: [stationId], references: [id])
+  typeId      Int?  
+  connectorType ConnectorType?       @relation(fields: [typeId], references: [id])
+  powerKw     Float
+  status      ConnectorStatus      @default(AVAILABLE)
+  pricePerKwh Float?
+  sessions    ChargingSession[]
+  statusLogs  ConnectorStatusLog[]
+  createdAt   DateTime             @default(now())
+  updatedAt   DateTime             @updatedAt
 
   @@index([stationId])
 }
 
+model ConnectorType {
+  id        Int      @id @default(autoincrement())
+  name      String   @unique
+  picture   String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  connectors Connector[]
+}
+
 model ConnectorStatusLog {
-  id          Int              @id @default(autoincrement())
+  id          Int             @id @default(autoincrement())
   connectorId Int
-  connector   Connector        @relation(fields: [connectorId], references: [id])
+  connector   Connector       @relation(fields: [connectorId], references: [id])
   status      ConnectorStatus
   powerKw     Float?
-  timestamp   DateTime         @default(now())
-  createdAt   DateTime         @default(now())
-  updatedAt   DateTime         @updatedAt
+  timestamp   DateTime        @default(now())
+  createdAt   DateTime        @default(now())
+  updatedAt   DateTime        @updatedAt
 
   @@index([connectorId])
 }
 
 model StationPricing {
-  id          Int      @id @default(autoincrement())
-  stationId   Int      @unique 
+  id          Int             @id @default(autoincrement())
+  stationId   Int             @unique
   station     ChargingStation @relation(fields: [stationId], references: [id])
   pricePerKwh Float
   idleFee     Float?
   endTime     DateTime?
-  createdAt   DateTime @default(now()) 
-  updatedAt   DateTime @updatedAt
+  createdAt   DateTime        @default(now())
+  updatedAt   DateTime        @updatedAt
 
   @@index([stationId])
 }
 
 model ChargingSession {
-  id          Int          @id @default(autoincrement())
+  id          Int           @id @default(autoincrement())
   userId      Int
-  user        User         @relation(fields: [userId], references: [id])
+  user        User          @relation(fields: [userId], references: [id])
   connectorId Int
-  connector   Connector    @relation(fields: [connectorId], references: [id])
-  energyKwh   Float        @default(0)
-  cost        Float        @default(0)
+  connector   Connector     @relation(fields: [connectorId], references: [id])
+  energyKwh   Float         @default(0)
+  cost        Float         @default(0)
   status      SessionStatus @default(ACTIVE)
   startTime   DateTime      @default(now())
   endTime     DateTime?
@@ -273,21 +285,20 @@ model ChargingSession {
   updatedAt   DateTime      @updatedAt
 
   WalletTransaction WalletTransaction[]
-  Payment           Payment[]  
+  Payment           Payment[]
+
   @@index([userId])
   @@index([connectorId])
 }
 
-
-
 model Wallet {
-  id        Int      @id @default(autoincrement())
-  userId    Int      @unique
-  user      User     @relation(fields: [userId], references: [id])
-  balance   Decimal  @default(0)
-  currency  String   @default("UZS")
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  id           Int                 @id @default(autoincrement())
+  userId       Int                 @unique
+  user         User                @relation(fields: [userId], references: [id])
+  balance      Decimal             @default(0)
+  currency     String              @default("UZS")
+  createdAt    DateTime            @default(now())
+  updatedAt    DateTime            @updatedAt
   transactions WalletTransaction[]
 }
 
@@ -309,16 +320,16 @@ model WalletTransaction {
 }
 
 model Payment {
-  id        Int           @id @default(autoincrement())
-  sessionId Int           @unique
+  id        Int             @id @default(autoincrement())
+  sessionId Int             @unique
   session   ChargingSession @relation(fields: [sessionId], references: [id])
   amount    Decimal
   method    PaymentMethod
-  createdAt DateTime      @default(now())
-  updatedAt DateTime      @updatedAt
+  createdAt DateTime        @default(now())
+  updatedAt DateTime        @updatedAt
 }
 
-model OperatorPayout { 
+model OperatorPayout {
   id         Int          @id @default(autoincrement())
   operatorId Int
   operator   Operator     @relation(fields: [operatorId], references: [id])
@@ -335,30 +346,30 @@ model OperatorPayout {
 }
 
 model Discount {
-  id          Int       @id @default(autoincrement())
+  id Int @id @default(autoincrement())
 
-  stationId   Int       @unique
-  station     ChargingStation @relation(fields: [stationId], references: [id], onDelete: Cascade)
+  stationId Int             @unique
+  station   ChargingStation @relation(fields: [stationId], references: [id], onDelete: Cascade)
 
-  percent     Float?     // percentage discount
-  fixedPrice  Decimal?   @db.Decimal(10,2)
+  percent    Float? // percentage discount
+  fixedPrice Decimal? @db.Decimal(10, 2)
 
-  startTime   DateTime
-  endTime     DateTime
+  startTime DateTime
+  endTime   DateTime
 
-  isActive    Boolean    @default(true)
+  isActive Boolean @default(true)
 
-  createdAt   DateTime   @default(now())
-  updatedAt   DateTime   @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   @@index([stationId])
 }
 
 model LegalDocument {
-  id        Int               @id @default(autoincrement())
-  type      LegalDocumentType
-  version   String
-  isActive  Boolean           @default(true)
+  id       Int               @id @default(autoincrement())
+  type     LegalDocumentType
+  version  String
+  isActive Boolean           @default(true)
 
   translations LegalTranslation[]
 
@@ -369,13 +380,13 @@ model LegalDocument {
 }
 
 model LegalTranslation {
-  id          Int      @id @default(autoincrement())
-  documentId  Int
-  language    Language
-  title       String
-  content     String   @db.Text
+  id         Int      @id @default(autoincrement())
+  documentId Int
+  language   Language
+  title      String
+  content    String   @db.Text
 
-  document    LegalDocument @relation(fields: [documentId], references: [id], onDelete: Cascade)
+  document LegalDocument @relation(fields: [documentId], references: [id], onDelete: Cascade)
 
   @@unique([documentId, language])
   @@index([language])
@@ -393,14 +404,14 @@ enum Language {
 }
 
 model StationLike {
-  id         Int  @id @default(autoincrement())
-  userId     Int
-  stationId  Int
+  id        Int @id @default(autoincrement())
+  userId    Int
+  stationId Int
 
-  user       User             @relation(fields: [userId], references: [id])
-  station    ChargingStation  @relation(fields: [stationId], references: [id])
+  user    User            @relation(fields: [userId], references: [id])
+  station ChargingStation @relation(fields: [stationId], references: [id])
 
-  createdAt  DateTime @default(now())
+  createdAt DateTime @default(now())
 
   @@unique([userId, stationId])
   @@index([stationId])
@@ -425,11 +436,10 @@ model Notification {
 model UserDevice {
   id          Int      @id @default(autoincrement())
   userId      Int
-  deviceToken String   @unique 
-  platform    String   // ANDROID | IOS
+  deviceToken String   @unique
+  platform    String // ANDROID | IOS
   isActive    Boolean  @default(true)
   createdAt   DateTime @default(now())
 
   user User @relation(fields: [userId], references: [id])
-
 }

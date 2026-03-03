@@ -5,13 +5,23 @@ const prisma = new PrismaClient();
 
 async function main() {
   // Ensure roles
-  const adminRole = await prisma.role.upsert({ where: { name: 'ADMIN' }, update: {}, create: { name: 'ADMIN' } });
-  const userRole = await prisma.role.upsert({ where: { name: 'USER' }, update: {}, create: { name: 'USER' } });
+  const adminRole = await prisma.role.upsert({
+    where: { name: 'ADMIN' },
+    update: {},
+    create: { name: 'ADMIN' },
+  });
+  const userRole = await prisma.role.upsert({
+    where: { name: 'USER' },
+    update: {},
+    create: { name: 'USER' },
+  });
 
   // Default admin
   const defaultAdminPhone = '+998900000001';
   const defaultAdminPassword = 'Admin123!';
-  const existingAdmin = await prisma.user.findUnique({ where: { phone: defaultAdminPhone } });
+  const existingAdmin = await prisma.user.findUnique({
+    where: { phone: defaultAdminPhone },
+  });
   if (!existingAdmin) {
     const hash = await bcrypt.hash(defaultAdminPassword, 12);
     await prisma.user.create({
@@ -58,7 +68,7 @@ async function main() {
       title: 'Downtown Station',
       address: '123 Main St',
       latitude: 40.7128,
-      longitude: -74.0060,
+      longitude: -74.006,
       powerType: 'AC',
       isActive: true,
       workingHours: '24/7',
@@ -78,12 +88,41 @@ async function main() {
     },
   });
 
+  const cnt = await prisma.connectorType.create({
+    data: {
+      name: 'CCS2',
+      picture: 'https://example.com/ccs2.png',
+    },
+  });
+
+  const cnt1 = await prisma.connectorType.create({
+    data: {
+      name: 'DDRC',
+      picture: 'https://example.com/ccs2.png',
+    },
+  });
+
   // Seed connectors
   await prisma.connector.createMany({
     data: [
-      { stationId: st1.id, type: 'CCS2', powerKw: 150, status: ConnectorStatus.AVAILABLE,  },
-      { stationId: st1.id, type: 'Type2', powerKw: 22, status: ConnectorStatus.AVAILABLE,  },
-      { stationId: st2.id, type: 'CHAdeMO', powerKw: 50, status: ConnectorStatus.OUT_OF_SERVICE, },
+      {
+        stationId: st1.id,
+        typeId: cnt.id,
+        powerKw: 150,
+        status: ConnectorStatus.AVAILABLE,
+      },
+      {
+        stationId: st1.id,
+        typeId: cnt1.id,
+        powerKw: 22,
+        status: ConnectorStatus.AVAILABLE,
+      },
+      {
+        stationId: st2.id,
+        typeId: cnt.id,
+        powerKw: 50,
+        status: ConnectorStatus.OUT_OF_SERVICE,
+      },
     ],
   });
 

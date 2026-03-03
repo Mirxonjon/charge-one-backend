@@ -13,7 +13,7 @@ import { FilterConnectorDto } from '@/types/connector/filter-connector.dto';
 // @UseGuards(JwtAuthGuard, RolesGuard)
 @Controller('connectors')
 export class ConnectorController {
-  constructor(private readonly service: ConnectorService) {}
+  constructor(private readonly service: ConnectorService) { }
 
   @Post()
   @Roles('ADMIN')
@@ -31,6 +31,7 @@ export class ConnectorController {
   @ApiQuery({ name: 'sortBy', required: false, example: 'createdAt' })
   @ApiQuery({ name: 'sortOrder', required: false, example: 'desc' })
   @ApiQuery({ name: 'stationId', required: false, example: 1 })
+  @ApiQuery({ name: 'type_id', required: false, example: 1 })
   @ApiQuery({ name: 'status', required: false, enum: ['AVAILABLE', 'OCCUPIED', 'OUT_OF_SERVICE'] })
   findAll(@Query() query: FilterConnectorDto) {
     return this.service.findAll(query);

@@ -52,6 +52,16 @@ export class FilterChargingStationDto {
   @ApiPropertyOptional({ example: 1 })
   @IsOptional()
   @Type(() => Number)
+  minPrice?: number;
+  
+  @ApiPropertyOptional({ example: 1 })
+  @IsOptional()
+  @Type(() => Number)
+  maxPrice?: number;
+
+  @ApiPropertyOptional({ example: 1 })
+  @IsOptional()
+  @Type(() => Number)
   @IsInt()
   operatorId?: number;
 
@@ -87,10 +97,10 @@ export class FilterChargingStationDto {
   @IsEnum(StationPowerType)
   powerType?: StationPowerType;
 
-  @ApiPropertyOptional({ example: 'GBT_A' })
+  @ApiPropertyOptional({ example: 1 })
   @IsOptional()
-  @IsString()
-  connectorType?: string;
+  @IsNumber()
+  connectorType_id?: number;
 
   @ApiPropertyOptional({ enum: ConnectorStatus })
   @IsOptional()

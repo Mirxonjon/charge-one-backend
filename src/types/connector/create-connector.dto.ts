@@ -9,10 +9,10 @@ export class CreateConnectorDto {
   @IsNumber()
   stationId: number;
 
-  @ApiProperty({ example: 'CCS2' })
+  @ApiProperty({ example: 1 })
   @IsNotEmpty()
-  @IsString()
-  type: string;
+  @IsNumber()
+  type_id: number;
 
   @ApiProperty({ example: 150 })
   @Type(() => Number)

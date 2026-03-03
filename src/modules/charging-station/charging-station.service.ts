@@ -20,11 +20,13 @@ export class ChargingStationService {
       sortBy = 'createdAt',
       sortOrder = 'desc',
       priceSort,
+      minPrice,
+      maxPrice,
       operatorId,
       isActive,
       powerType,
       search,
-      connectorType,
+      connectorType_id,
       connectorStatus,
       chargingSpeed,
       from,
@@ -52,13 +54,13 @@ export class ChargingStationService {
       if (to) where.createdAt.lte = new Date(to);
     }
 
-    if (connectorType || connectorStatus || chargingSpeed) {
+    if (connectorType_id || connectorStatus || chargingSpeed) {
       where.connectors = {
         some: {},
       };
 
-      if (connectorType) {
-        where.connectors.some.type = connectorType;
+      if (connectorType_id) {
+        where.connectors.some.typeId = connectorType_id;
       }
 
       if (connectorStatus) {
@@ -83,6 +85,24 @@ export class ChargingStationService {
       }
     }
 
+    if (minPrice !== undefined || maxPrice !== undefined) {
+      where.pricing = {};
+
+      if (minPrice !== undefined) {
+        where.pricing.pricePerKwh = {
+          ...(where.pricing.pricePerKwh || {}),
+          gte: Number(minPrice),
+        };
+      }
+
+      if (maxPrice !== undefined) {
+        where.pricing.pricePerKwh = {
+          ...(where.pricing.pricePerKwh || {}),
+          lte: Number(maxPrice),
+        };
+      }
+    }
+
     let stations = (await this.prisma.chargingStation.findMany({
       where,
       include: {
@@ -93,7 +113,20 @@ export class ChargingStationService {
           },
         },
         pricing: true,
-        connectors: true,
+        connectors: {
+          select: {
+            connectorType: {
+              select: {
+                name: true,
+                picture: true,
+              },
+            },
+            typeId: true,
+            status: true,
+            powerKw: true,
+            // type:true
+          },
+        },
       },
       orderBy: priceSort
         ? {

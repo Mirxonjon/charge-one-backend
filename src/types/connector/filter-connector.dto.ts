@@ -34,6 +34,12 @@ export class FilterConnectorDto {
   @IsInt()
   stationId?: number;
 
+  @ApiPropertyOptional({ example: 1 })
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  type_id?: number;
+
   @ApiPropertyOptional({ enum: ConnectorStatus })
   @IsOptional()
   @IsEnum(ConnectorStatus)

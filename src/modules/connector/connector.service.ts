@@ -7,16 +7,20 @@ import { ConnectorStatus } from '@prisma/client';
 
 @Injectable()
 export class ConnectorService {
-  constructor(private prisma: PrismaService) {}
+  constructor(private prisma: PrismaService) { }
 
   async create(dto: CreateConnectorDto) {
-    return this.prisma.connector.create({ data: dto });
+    const { type_id, ...rest } = dto as any;
+    const data: any = { ...rest };
+    if (type_id !== undefined) data.typeId = type_id;
+    return this.prisma.connector.create({ data });
   }
 
   async findAll(query: FilterConnectorDto) {
-    const { page = 1, limit = 10, sortBy = 'createdAt', sortOrder = 'desc', stationId, status } = query;
+    const { page = 1, limit = 10, sortBy = 'createdAt', sortOrder = 'desc', stationId, status, type_id } = query;
     const where: any = {};
     if (stationId) where.stationId = stationId;
+    if (type_id) where.typeId = type_id;
     if (status) where.status = status as ConnectorStatus;
 
     const [items, total] = await this.prisma.$transaction([
@@ -25,7 +29,7 @@ export class ConnectorService {
         orderBy: { [sortBy]: sortOrder },
         skip: (page - 1) * limit,
         take: limit,
-        include: { station: true },
+        include: { station: true ,  },
       }),
       this.prisma.connector.count({ where }),
     ]);
@@ -41,7 +45,10 @@ export class ConnectorService {
 
   async update(id: number, dto: UpdateConnectorDto) {
     await this.findOne(id);
-    return this.prisma.connector.update({ where: { id }, data: dto });
+    const { type_id, ...rest } = dto as any;
+    const data: any = { ...rest };
+    if (type_id !== undefined) data.typeId = type_id;
+    return this.prisma.connector.update({ where: { id }, data });
   }
 
   async remove(id: number) {
