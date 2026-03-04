@@ -221,6 +221,8 @@ export class VehicleService {
             data: {
               batterySize: mapped.batterySize,
               imageUrl: mapped.imageUrl,
+              rangeKm: mapped.rangeKm,
+              year: mapped.year,
             },
           });
 
