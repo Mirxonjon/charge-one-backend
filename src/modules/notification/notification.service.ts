@@ -17,7 +17,7 @@ export class NotificationService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly firebase: FirebaseAdminService
-  ) {}
+  ) { }
 
   // Helper: structured logging wrappers to ensure JSON-like output
   private log(payload: Record<string, any>) {
@@ -257,7 +257,7 @@ export class NotificationService {
         .map((d) => d.userId!) as number[];
       const uniqueUsers = new Set(userIds);
       const totalUsers = uniqueUsers.size;
-      
+
       await this.prisma.$transaction(
         Array.from(uniqueUsers).map((uid) =>
           this.prisma.notification.create({
@@ -336,6 +336,13 @@ export class NotificationService {
       throw new NotFoundException('Notification not found');
     return this.prisma.notification.update({
       where: { id },
+      data: { isRead: true },
+    });
+  }
+
+  async markAllRead(userId: number) {
+    return this.prisma.notification.updateMany({
+      where: { userId, isRead: false },
       data: { isRead: true },
     });
   }

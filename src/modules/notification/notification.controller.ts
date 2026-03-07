@@ -32,7 +32,7 @@ import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 @UseGuards(JwtAuthGuard)
 @Controller('notifications')
 export class NotificationController {
-  constructor(private service: NotificationService) {}
+  constructor(private service: NotificationService) { }
 
   @Post('register-device')
   @ApiOperation({ summary: 'Register device token' })
@@ -85,6 +85,13 @@ export class NotificationController {
     const userId = (req as any).user.sub as number;
     const { page = 1, limit = 10 } = query;
     return this.service.listMy(userId, page, limit);
+  }
+
+  @Patch('read-all')
+  @ApiOperation({ summary: 'Mark all notifications as read' })
+  async markAllRead(@Req() req: any) {
+    const userId = (req as any).user.sub as number;
+    return this.service.markAllRead(userId);
   }
 
   @Patch(':id/read')
