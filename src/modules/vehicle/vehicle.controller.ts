@@ -4,6 +4,7 @@ import { CreateCarDto } from '@/types/vehicle/create-car.dto';
 import { UpdateCarDto } from '@/types/vehicle/update-car.dto';
 import { CarFilterDto } from '@/types/vehicle/car-filter.dto';
 import { AddUserCarDto } from '@/types/vehicle/add-user-car.dto';
+import { UpdateUserCarDto } from '@/types/vehicle/update-user-car.dto';
 import { JwtAuthGuard } from '@/modules/auth/guards/jwt-auth.guard';
 import { Roles } from '@/modules/auth/decorators/roles.decorator';
 import { RolesGuard } from '@/modules/auth/guards/roles.guard';
@@ -14,7 +15,7 @@ import { ApiBearerAuth, ApiBody, ApiOperation, ApiResponse, ApiTags } from '@nes
 @UseGuards(JwtAuthGuard, RolesGuard)
 @Controller('cars')
 export class VehicleController {
-  constructor(private readonly vehicleService: VehicleService) {}
+  constructor(private readonly vehicleService: VehicleService) { }
 
   // Admin-only CRUD
   @Post()
@@ -70,6 +71,19 @@ export class VehicleController {
   removeFromMe(@Param('userCarId') userCarId: string, @Req() req: any) {
     const userId = req.user?.sub;
     return this.vehicleService.removeFromUser(userId, +userCarId);
+  }
+
+  @Patch('me/:userCarId')
+  @Roles('USER', 'ADMIN')
+  @ApiOperation({ summary: 'Update your user car details' })
+  @ApiBody({ type: UpdateUserCarDto })
+  updateMyCar(
+    @Param('userCarId') userCarId: string,
+    @Body() dto: UpdateUserCarDto,
+    @Req() req: any,
+  ) {
+    const userId = req.user?.sub;
+    return this.vehicleService.updateUserCar(userId, +userCarId, dto);
   }
 
   @Get('me/list')

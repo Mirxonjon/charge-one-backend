@@ -8,12 +8,13 @@ import { CreateCarDto } from '@/types/vehicle/create-car.dto';
 import { UpdateCarDto } from '@/types/vehicle/update-car.dto';
 import { CarFilterDto } from '@/types/vehicle/car-filter.dto';
 import { AddUserCarDto } from '@/types/vehicle/add-user-car.dto';
+import { UpdateUserCarDto } from '@/types/vehicle/update-user-car.dto';
 import * as fs from 'fs';
 import * as path from 'path';
 
 @Injectable()
 export class VehicleService {
-  constructor(private prisma: PrismaService) {}
+  constructor(private prisma: PrismaService) { }
 
   async create(dto: CreateCarDto, createdById?: number) {
     try {
@@ -174,6 +175,64 @@ export class VehicleService {
       throw new NotFoundException('User car not found');
     await this.prisma.userCar.delete({ where: { id: userCarId } });
     return { success: true };
+  }
+
+  async updateUserCar(
+    userId: number,
+    userCarId: number,
+    dto: UpdateUserCarDto
+  ) {
+    const uc = await this.prisma.userCar.findUnique({
+      where: { id: userCarId },
+    });
+
+    if (!uc || uc.userId !== userId) {
+      throw new NotFoundException('User car not found');
+    }
+
+    if (dto.vin && dto.vin !== uc.vin) {
+      const existingVin = await this.prisma.userCar.findUnique({
+        where: { vin: dto.vin },
+      });
+      if (existingVin) {
+        throw new BadRequestException('Car with this VIN already exists');
+      }
+    }
+
+    if (dto.plateNumber && dto.plateNumber !== uc.plateNumber) {
+      const existingPlate = await this.prisma.userCar.findUnique({
+        where: { plateNumber: dto.plateNumber },
+      });
+      if (existingPlate) {
+        throw new BadRequestException('plateNumber already exists');
+      }
+    }
+
+    if (dto.carId && dto.carId !== uc.carId) {
+      const carExists = await this.prisma.car.findUnique({
+        where: { id: dto.carId },
+      });
+      if (!carExists) {
+        throw new NotFoundException('Car not found');
+      }
+    }
+
+    try {
+      return await this.prisma.userCar.update({
+        where: { id: userCarId },
+        data: {
+          vin: dto.vin,
+          plateNumber: dto.plateNumber,
+          color: dto.color,
+          carId: dto.carId,
+        },
+      });
+    } catch (e: any) {
+      if (e.code === 'P2002') {
+        throw new BadRequestException('Duplicate entry for vin or plateNumber');
+      }
+      throw e;
+    }
   }
 
   async getUserCars(userId: number) {
