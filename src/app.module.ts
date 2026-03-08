@@ -31,6 +31,8 @@ import { DiscountModule } from './modules/discount/discount.module';
 import { StationLikeModule } from './modules/station-like/station-like.module';
 import { NotificationModule } from './modules/notification/notification.module';
 import { ConnectorTypeModule } from './modules/connector-type/connector-type.module';
+import { OcppModule } from './modules/ocpp/ocpp.module';
+import { SocketModule } from './modules/socket/socket.module';
 @Module({
   imports: [
     ConfigModule.forRoot({
@@ -67,6 +69,8 @@ import { ConnectorTypeModule } from './modules/connector-type/connector-type.mod
     DiscountModule,
     StationLikeModule,
     NotificationModule,
+    OcppModule,
+    SocketModule,
   ],
   providers: [
     {

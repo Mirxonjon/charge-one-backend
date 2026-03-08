@@ -39,9 +39,9 @@ import { Request } from 'express';
 @UseGuards(JwtAuthGuard, RolesGuard)
 @Controller('sessions')
 export class ChargingSessionController {
-  constructor(private readonly service: ChargingSessionService) {}
+  constructor(private readonly service: ChargingSessionService) { }
 
-  // USER create own session
+  // USER create own session purely locally (deprecated but kept for compatibility)
   @Post()
   @HttpCode(HttpStatus.CREATED)
   @ApiOperation({ summary: 'Create charging session (USER creates own)' })
@@ -49,6 +49,25 @@ export class ChargingSessionController {
   create(@Body() dto: CreateChargingSessionDto, @Req() req: Request) {
     const userId = (req as any).user.sub as number;
     return this.service.createForUser(userId, dto);
+  }
+
+  // TRIGGER REMOTE START
+  @Post('start')
+  @HttpCode(HttpStatus.ACCEPTED)
+  @ApiOperation({ summary: 'Trigger remote start on an OCPP station' })
+  @ApiBody({ type: CreateChargingSessionDto })
+  remoteStart(@Body() dto: CreateChargingSessionDto, @Req() req: Request) {
+    const userId = (req as any).user.sub as number;
+    return this.service.remoteStartSession(userId, dto);
+  }
+
+  // TRIGGER REMOTE STOP
+  @Post('stop/:sessionId')
+  @HttpCode(HttpStatus.ACCEPTED)
+  @ApiOperation({ summary: 'Trigger remote stop on an OCPP station' })
+  remoteStop(@Param('sessionId', ParseIntPipe) sessionId: number, @Req() req: Request) {
+    const userId = (req as any).user.sub as number;
+    return this.service.remoteStopSession(userId, sessionId);
   }
 
   // ADMIN create for any user

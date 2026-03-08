@@ -9,9 +9,15 @@ import { CreateChargingSessionDto } from '@/types/charging-session/create-chargi
 import { UpdateChargingSessionDto } from '@/types/charging-session/update-charging-session.dto';
 import { FilterChargingSessionDto } from '@/types/charging-session/filter-charging-session.dto';
 import { SessionStatus } from '@prisma/client';
+import { OcppServer } from '../ocpp/ocpp.server';
+
 @Injectable()
 export class ChargingSessionService {
-  constructor(private prisma: PrismaService, private notificationService: NotificationService) {}
+  constructor(
+    private prisma: PrismaService,
+    private notificationService: NotificationService,
+    private ocppServer: OcppServer
+  ) { }
   async createForUser(userId: number, dto: CreateChargingSessionDto) {
     return this.prisma.chargingSession.create({
       data: {
@@ -136,5 +142,59 @@ export class ChargingSessionService {
     await this.adminFindOne(id);
     await this.prisma.chargingSession.delete({ where: { id } });
     return { success: true };
+  }
+
+  // Frontend REST API logic to dispatch OCPP START
+  async remoteStartSession(userId: number, dto: CreateChargingSessionDto) {
+    // Determine station ID from connector ID
+    const connector = await this.prisma.connector.findUnique({
+      where: { id: dto.connectorId },
+      include: { station: true }
+    });
+
+    if (!connector) throw new NotFoundException('Connector not found');
+
+    const stationId = `CP00${connector.station.id}`; // Simulated format, could be real serial
+
+    // Attempt to invoke the target WS
+    try {
+      await this.ocppServer.sendCallToStation(stationId, "RemoteStartTransaction", {
+        connectorId: connector.id,
+        idTag: userId.toString()
+      });
+
+      return {
+        success: true,
+        message: "Remote start command dispatched via OCPP"
+      }
+    } catch (e) {
+      throw new ForbiddenException(`Failed to connect to station: ${e.message}`);
+    }
+  }
+
+  // Frontend REST API logic to dispatch OCPP STOP
+  async remoteStopSession(userId: number, sessionId: number) {
+    const session = await this.prisma.chargingSession.findUnique({
+      where: { id: sessionId },
+      include: { connector: { include: { station: true } } }
+    });
+
+    if (!session) throw new NotFoundException('Session not found');
+    if (session.userId !== userId) throw new ForbiddenException('Not your session');
+
+    const stationId = `CP00${session.connector.station.id}`;
+
+    try {
+      await this.ocppServer.sendCallToStation(stationId, "RemoteStopTransaction", {
+        transactionId: session.id
+      });
+
+      return {
+        success: true,
+        message: "Remote stop command dispatched via OCPP"
+      }
+    } catch (e) {
+      throw new ForbiddenException(`Failed to connect to station: ${e.message}`);
+    }
   }
 }

@@ -1,93 +1,106 @@
-# crm-backend
+# Charge One Backend
 
+Charge One is a comprehensive Enterprise Resource Planning (ERP) and EV Charging Station Management backend built with [NestJS](https://nestjs.com/). It provides robust APIs for managing charging stations, connectors, operators, user wallets, vehicle tracking, and real-time charging sessions.
 
+## 🚀 Tech Stack
 
-## Getting started
+- **Framework**: [NestJS](https://nestjs.com/) (Express under the hood)
+- **Language**: TypeScript
+- **Database**: PostgreSQL
+- **ORM**: [Prisma](https://www.prisma.io/)
+- **API Documentation**: Swagger (`/docs`)
+- **Real-time Communication**: Socket.io
+- **Additional Integrations**: Firebase Admin, MinIO (Object Storage), Telegraf, Weaviate.
 
-To make it easy for you to get started with GitLab, here's a list of recommended next steps.
+---
 
-Already a pro? Just edit this README.md and make it your own. Want to make it easy? [Use the template at the bottom](#editing-this-readme)!
+## 📂 Project Structure
 
-## Add your files
+The project follows a modular monolithic architecture. Core business logic is separated into independent modules located in `src/modules`:
 
-- [ ] [Create](https://docs.gitlab.com/ee/user/project/repository/web_editor.html#create-a-file) or [upload](https://docs.gitlab.com/ee/user/project/repository/web_editor.html#upload-a-file) files
-- [ ] [Add files using the command line](https://docs.gitlab.com/ee/gitlab-basics/add-file.html#add-a-file-using-the-command-line) or push an existing Git repository with the following command:
+### Core Domain Modules
+- **`operator`** & **`operator-payout`**: Management of charging station operators and their payouts.
+- **`charging-station`**, **`station-pricing`**, **`discount`**, **`station-like`**: Management of EV charging stations, custom pricing, discounts, and user favorites.
+- **`connector`** & **`connector-type`**: Hardware-level connection points and their physical port types.
+- **`connector-status-log`** & **`charging-session`**: Telemetry for connector statuses and active user charging sessions.
+- **`vehicle`**: EV vehicle definitions and users' associated cars.
+- **`users`** & **`auth`**: User identity, role-based access control, and authentication (JWT, OTP).
 
+### Finance & Billing Modules
+- **`wallet`** & **`wallet-transaction`**: Virtual user wallets, top-ups, and balance tracking.
+- **`payment`**: Transactions tied to charging sessions (integrates with Click/Payme).
+
+### Supporting Modules
+- **`notification`**: System and push notifications to user devices.
+- **`legal`**: Management of legal documents (Terms, Privacy Policy) with multilingual support.
+- **`prisma`**: Database connectivity using Prisma ORM.
+
+---
+
+## 🗄 Database Schema Overview
+
+The central database consists of several interrelated entities carefully modeling an EV charging network:
+
+1. **Entities & Roles**: `User` and `Role` management with tracking for verified status. Let users add their cars (`Car`, `UserCar`).
+2. **Charging Infrastructure**: `Operator` owns multiple `ChargingStation`s. Each station has multiple `Connector`s of varying `ConnectorType`s (e.g., Type 2, CCS, CHAdeMO).
+3. **Session & Live Status**: `ChargingSession` keeps track of active charges, linking a user, a connector, energy consumed (`energyKwh`), and calculated costs. `ConnectorStatusLog` logs availability.
+4. **Economics**: `Wallet` linked to each user records internal `WalletTransaction`s (DEPOSIT, CHARGE, REFUND). `StationPricing` and `Discount` accurately calculate energy prices. `Payment` handles external top-ups, and `OperatorPayout` organizes the distribution of revenue back to station owners.
+
+---
+
+## ⚙️ Getting Started
+
+### Prerequisites
+- Node.js (v18+)
+- PostgreSQL database
+- Prisma CLI
+
+### Installation
+
+1. Clone the repository and install dependencies:
+```bash
+npm install
 ```
-cd existing_repo
-git remote add origin http://gitlab.ccenter.uz/imron/crm-backend.git
-git branch -M main
-git push -uf origin main
+
+2. Configure environment variables in `.env` (refer to `.env.example`).
+   - `DATABASE_URL` for PostgreSQL credentials.
+   - App settings (`PORT`, `CORS_DOMAINS`, etc.)
+
+3. Generate Prisma client & sync database schema:
+```bash
+npx prisma generate
+npx prisma db push
 ```
 
-## Integrate with your tools
+4. Start the application:
+```bash
+# development
+npm run start
 
-- [ ] [Set up project integrations](http://gitlab.ccenter.uz/imron/crm-backend/-/settings/integrations)
+# watch mode
+npm run start:dev
 
-## Collaborate with your team
+# production mode
+npm run build
+npm run start:prod
+```
 
-- [ ] [Invite team members and collaborators](https://docs.gitlab.com/ee/user/project/members/)
-- [ ] [Create a new merge request](https://docs.gitlab.com/ee/user/project/merge_requests/creating_merge_requests.html)
-- [ ] [Automatically close issues from merge requests](https://docs.gitlab.com/ee/user/project/issues/managing_issues.html#closing-issues-automatically)
-- [ ] [Enable merge request approvals](https://docs.gitlab.com/ee/user/project/merge_requests/approvals/)
-- [ ] [Set auto-merge](https://docs.gitlab.com/ee/user/project/merge_requests/merge_when_pipeline_succeeds.html)
+---
 
-## Test and Deploy
+## 📖 API Documentation
 
-Use the built-in continuous integration in GitLab.
+The RESTful APIs are automatically documented using Swagger. Once the app is running, access the interactive docs at:
 
-- [ ] [Get started with GitLab CI/CD](https://docs.gitlab.com/ee/ci/quick_start/index.html)
-- [ ] [Analyze your code for known vulnerabilities with Static Application Security Testing (SAST)](https://docs.gitlab.com/ee/user/application_security/sast/)
-- [ ] [Deploy to Kubernetes, Amazon EC2, or Amazon ECS using Auto Deploy](https://docs.gitlab.com/ee/topics/autodevops/requirements.html)
-- [ ] [Use pull-based deployments for improved Kubernetes management](https://docs.gitlab.com/ee/user/clusters/agent/)
-- [ ] [Set up protected environments](https://docs.gitlab.com/ee/ci/environments/protected_environments.html)
+**`http://{host}:{port}/docs`**
 
-***
+Global API prefix is set to `/v1`. CORS is enabled and configured via environment variables. Request body limits are set to `10mb`.
 
-# Editing this README
+## 📜 Scripts
 
-When you're ready to make this README your own, just edit this file and use the handy template below (or feel free to structure it however you want - this is just a starting point!). Thanks to [makeareadme.com](https://www.makeareadme.com/) for this template.
-
-## Suggestions for a good README
-
-Every project is different, so consider which of these sections apply to yours. The sections used in the template are suggestions for most open source projects. Also keep in mind that while a README can be too long and detailed, too long is better than too short. If you think your README is too long, consider utilizing another form of documentation rather than cutting out information.
-
-## Name
-Choose a self-explaining name for your project.
-
-## Description
-Let people know what your project can do specifically. Provide context and add a link to any reference visitors might be unfamiliar with. A list of Features or a Background subsection can also be added here. If there are alternatives to your project, this is a good place to list differentiating factors.
-
-## Badges
-On some READMEs, you may see small images that convey metadata, such as whether or not all the tests are passing for the project. You can use Shields to add some to your README. Many services also have instructions for adding a badge.
-
-## Visuals
-Depending on what you are making, it can be a good idea to include screenshots or even a video (you'll frequently see GIFs rather than actual videos). Tools like ttygif can help, but check out Asciinema for a more sophisticated method.
-
-## Installation
-Within a particular ecosystem, there may be a common way of installing things, such as using Yarn, NuGet, or Homebrew. However, consider the possibility that whoever is reading your README is a novice and would like more guidance. Listing specific steps helps remove ambiguity and gets people to using your project as quickly as possible. If it only runs in a specific context like a particular programming language version or operating system or has dependencies that have to be installed manually, also add a Requirements subsection.
-
-## Usage
-Use examples liberally, and show the expected output if you can. It's helpful to have inline the smallest example of usage that you can demonstrate, while providing links to more sophisticated examples if they are too long to reasonably include in the README.
-
-## Support
-Tell people where they can go to for help. It can be any combination of an issue tracker, a chat room, an email address, etc.
-
-## Roadmap
-If you have ideas for releases in the future, it is a good idea to list them in the README.
-
-## Contributing
-State if you are open to contributions and what your requirements are for accepting them.
-
-For people who want to make changes to your project, it's helpful to have some documentation on how to get started. Perhaps there is a script that they should run or some environment variables that they need to set. Make these steps explicit. These instructions could also be useful to your future self.
-
-You can also document commands to lint the code or run tests. These steps help to ensure high code quality and reduce the likelihood that the changes inadvertently break something. Having instructions for running tests is especially helpful if it requires external setup, such as starting a Selenium server for testing in a browser.
-
-## Authors and acknowledgment
-Show your appreciation to those who have contributed to the project.
-
-## License
-For open source projects, say how it is licensed.
-
-## Project status
-If you have run out of energy or time for your project, put a note at the top of the README saying that development has slowed down or stopped completely. Someone may choose to fork your project or volunteer to step in as a maintainer or owner, allowing your project to keep going. You can also make an explicit request for maintainers.
+| Command | Description |
+|---|---|
+| `npm run build` | Cleans `dist` and builds the Nest application |
+| `npm run format` | Formats code using Prettier |
+| `npm run start:dev` | Starts the app in watch mode |
+| `npm run lint` | Lints the codebase using ESLint |
+| `npm test` | Runs Jest unit tests |
