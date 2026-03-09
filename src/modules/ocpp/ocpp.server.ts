@@ -21,8 +21,8 @@ export class OcppServer implements OnModuleInit, OnModuleDestroy {
     }
 
     private startServer() {
-        // Start WebSocket server on port 9000 as per requirement
-        const PORT = 9000;
+        // Start WebSocket server on port from env
+        const PORT = process.env.OCPP_PORT ? parseInt(process.env.OCPP_PORT, 10) : 9051;
         this.wss = new WebSocket.Server({ port: PORT });
 
         this.logger.log(`OCPP WebSocket Server listening on ws://localhost:${PORT}/ocpp/:stationId`);
