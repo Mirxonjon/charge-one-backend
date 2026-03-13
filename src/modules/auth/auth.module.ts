@@ -1,5 +1,6 @@
 import { Module } from '@nestjs/common';
 import { JwtModule } from '@nestjs/jwt';
+import { ConfigModule } from '@nestjs/config';
 import { AuthService } from './auth.service';
 import { AuthController } from './auth.controller';
 import { AdminController } from './admin.controller';
@@ -13,6 +14,7 @@ import { RolesGuard } from './guards/roles.guard';
 
 @Module({
   imports: [
+    ConfigModule,
     PrismaModule,
     UsersModule,
     JwtModule.register({
@@ -23,4 +25,4 @@ import { RolesGuard } from './guards/roles.guard';
   providers: [AuthService, OtpService, SmsService, AccessTokenStrategy, RefreshTokenStrategy, RolesGuard],
   exports: [AuthService],
 })
-export class AuthModule {}
+export class AuthModule { }

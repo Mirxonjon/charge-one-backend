@@ -26,7 +26,15 @@ export class OtpService {
   }
 
   async generateAndStoreOtp(phone: string, userId?: number) {
-    const code = '' + Math.floor(10000 + Math.random() * 90000);
+    let code: string;
+
+    // test number
+    if (phone === '+998987654321') {
+      code = '12345';
+    } else {
+      code = '' + Math.floor(10000 + Math.random() * 90000);
+    }
+
     const expiresAt = new Date(Date.now() + OTP_TTL_MINUTES * 60 * 1000);
 
     await this.prisma.otpCode.create({

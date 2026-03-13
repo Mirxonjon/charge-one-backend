@@ -59,16 +59,18 @@ export class AuthService {
       });
     }
 
-    const code = await this.otpService.generateAndStoreOtp(dto.phone, user.id);
+    let code = await this.otpService.generateAndStoreOtp(dto.phone, user.id);
 
     // try to send sms, but do not fail if provider fails
     try {
-      await this.smsService.sendOtp(dto.phone, code);
+      if (dto.phone !== '+998987654321') {
+        await this.smsService.sendOtp(dto.phone, code);
+      }
     } catch (e) {
       // swallow provider error per requirements
     }
 
-    return { success: true, message: 'OTP sent (or simulated)', code };
+    return { success: true, message: 'OTP sent (or simulated)' };
   }
 
   async verifyOtpForRegistration(dto: VerifyOtpDto, device: DeviceInfo) {
