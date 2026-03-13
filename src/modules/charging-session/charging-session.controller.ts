@@ -31,6 +31,7 @@ import { Roles } from '@/modules/auth/decorators/roles.decorator';
 import { CreateChargingSessionDto } from '@/types/charging-session/create-charging-session.dto';
 import { UpdateChargingSessionDto } from '@/types/charging-session/update-charging-session.dto';
 import { FilterChargingSessionDto } from '@/types/charging-session/filter-charging-session.dto';
+import { RemoteStartSessionDto } from '@/types/charging-session/remote-start-session.dto';
 
 import { Request } from 'express';
 
@@ -55,8 +56,8 @@ export class ChargingSessionController {
   @Post('start')
   @HttpCode(HttpStatus.ACCEPTED)
   @ApiOperation({ summary: 'Trigger remote start on an OCPP station' })
-  @ApiBody({ type: CreateChargingSessionDto })
-  remoteStart(@Body() dto: CreateChargingSessionDto, @Req() req: Request) {
+  @ApiBody({ type: RemoteStartSessionDto })
+  remoteStart(@Body() dto: RemoteStartSessionDto, @Req() req: Request) {
     const userId = (req as any).user.sub as number;
     return this.service.remoteStartSession(userId, dto);
   }

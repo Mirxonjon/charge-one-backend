@@ -6,7 +6,7 @@ import { FilterChargingStationDto } from '@/types/charging-station/filter-chargi
 
 @Injectable()
 export class ChargingStationService {
-  constructor(private prisma: PrismaService) {}
+  constructor(private prisma: PrismaService) { }
 
   async create(dto: CreateChargingStationDto) {
     const created = await this.prisma.chargingStation.create({ data: dto });
@@ -115,6 +115,7 @@ export class ChargingStationService {
         pricing: true,
         connectors: {
           select: {
+            id: true, connectorNumber: true,
             connectorType: {
               select: {
                 name: true,
@@ -130,10 +131,10 @@ export class ChargingStationService {
       },
       orderBy: priceSort
         ? {
-            pricing: {
-              pricePerKwh: priceSort, // 'asc' | 'desc'
-            },
-          }
+          pricing: {
+            pricePerKwh: priceSort, // 'asc' | 'desc'
+          },
+        }
         : undefined,
     })) as any;
 
@@ -149,8 +150,8 @@ export class ChargingStationService {
         const a =
           Math.sin(dLat / 2) ** 2 +
           Math.cos(toRad(lat)) *
-            Math.cos(toRad(s.latitude)) *
-            Math.sin(dLng / 2) ** 2;
+          Math.cos(toRad(s.latitude)) *
+          Math.sin(dLng / 2) ** 2;
 
         const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
         const d = R * c;

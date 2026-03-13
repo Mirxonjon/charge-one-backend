@@ -10,6 +10,7 @@ import { UpdateChargingSessionDto } from '@/types/charging-session/update-chargi
 import { FilterChargingSessionDto } from '@/types/charging-session/filter-charging-session.dto';
 import { SessionStatus } from '@prisma/client';
 import { OcppServer } from '../ocpp/ocpp.server';
+import { RemoteStartSessionDto } from '@/types/charging-session/remote-start-session.dto';
 
 @Injectable()
 export class ChargingSessionService {
@@ -145,8 +146,7 @@ export class ChargingSessionService {
   }
 
   // Frontend REST API logic to dispatch OCPP START
-  async remoteStartSession(userId: number, dto: CreateChargingSessionDto) {
-    // Determine station ID from connector ID
+  async remoteStartSession(userId: number, dto: RemoteStartSessionDto) {
     const connector = await this.prisma.connector.findUnique({
       where: { id: dto.connectorId },
       include: { station: true }
@@ -154,20 +154,43 @@ export class ChargingSessionService {
 
     if (!connector) throw new NotFoundException('Connector not found');
 
-    const stationId = `CP00${connector.station.id}`; // Simulated format, could be real serial
+    // Use the real OCPP station ID from the database
+    const ocppStationId = connector.station.ocppStationId;
+    if (!ocppStationId) {
+      throw new ForbiddenException(
+        `Station "${connector.station.title}" does not have an ocppStationId set. Please configure it first.`
+      );
+    }
+    console.log(ocppStationId, dto, connector);
 
-    // Attempt to invoke the target WS
-    try {
-      await this.ocppServer.sendCallToStation(stationId, "RemoteStartTransaction", {
+    // Pre-create the session so we can return the sessionId immediately.
+    // OcppService.handleStartTransaction will find and reuse this session (not create a duplicate).
+    const session = await this.prisma.chargingSession.create({
+      data: {
         connectorId: connector.id,
+        userId,
+        userCarId: dto.userCarId ?? null,
+        status: SessionStatus.ACTIVE,
+        energyKwh: 0,
+        cost: 0,
+        startTime: new Date(),
+      },
+    });
+
+    try {
+      await this.ocppServer.sendCallToStation(ocppStationId, 'RemoteStartTransaction', {
+        connectorId: connector.connectorNumber, // OCPP connectorId = connectorNumber, NOT the DB id
         idTag: userId.toString()
       });
 
       return {
         success: true,
-        message: "Remote start command dispatched via OCPP"
-      }
+        sessionId: session.id,
+        message: 'Remote start command dispatched via OCPP',
+      };
     } catch (e) {
+      // If OCPP dispatch failed, delete the pre-created session to keep DB clean
+      await this.prisma.chargingSession.delete({ where: { id: session.id } }).catch(() => { });
       throw new ForbiddenException(`Failed to connect to station: ${e.message}`);
     }
   }
@@ -182,17 +205,24 @@ export class ChargingSessionService {
     if (!session) throw new NotFoundException('Session not found');
     if (session.userId !== userId) throw new ForbiddenException('Not your session');
 
-    const stationId = `CP00${session.connector.station.id}`;
+    // Use the real OCPP station ID from the database
+    const ocppStationId = session.connector.station.ocppStationId;
+    if (!ocppStationId) {
+      throw new ForbiddenException(
+        `Station "${session.connector.station.title}" does not have an ocppStationId set. Please configure it first.`
+      );
+    }
 
     try {
-      await this.ocppServer.sendCallToStation(stationId, "RemoteStopTransaction", {
+      await this.ocppServer.sendCallToStation(ocppStationId, 'RemoteStopTransaction', {
         transactionId: session.id
       });
 
       return {
         success: true,
-        message: "Remote stop command dispatched via OCPP"
-      }
+        sessionId: session.id,
+        message: 'Remote stop command dispatched via OCPP'
+      };
     } catch (e) {
       throw new ForbiddenException(`Failed to connect to station: ${e.message}`);
     }

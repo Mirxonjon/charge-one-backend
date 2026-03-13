@@ -39,92 +39,102 @@ async function main() {
     console.log('Default admin already exists');
   }
 
-  // // Seed two operators
-  // const op1 = await prisma.operator.upsert({
-  //   where: { id: 1 },
-  //   update: {},
-  //   create: {
-  //     title: 'GreenCharge LLC',
-  //     contact: '+1 555-100-2000',
-  //     bankName: 'First National',
-  //     bankAccount: 'US1234567890',
-  //     bankMfo: '12345',
-  //   },
-  // });
+  // keyin ichirib qoyish kerak
 
-  // const op2 = await prisma.operator.upsert({
-  //   where: { id: 2 },
-  //   update: {},
-  //   create: {
-  //     title: 'VoltCity Inc.',
-  //     contact: '+1 555-300-4000',
-  //   },
-  // });
+  // Seed two operators
+  const op1 = await prisma.operator.upsert({
+    where: { id: 1 },
+    update: {},
+    create: {
+      title: 'GreenCharge LLC',
+      contact: '+1 555-100-2000',
+      bankName: 'First National',
+      bankAccount: 'US1234567890',
+      bankMfo: '12345',
+    },
+  });
 
-  // // Seed stations
-  // const st1 = await prisma.chargingStation.create({
-  //   data: {
-  //     operatorId: op1.id,
-  //     title: 'Downtown Station',
-  //     address: '123 Main St',
-  //     latitude: 40.7128,
-  //     longitude: -74.006,
-  //     powerType: 'AC',
-  //     isActive: true,
-  //     workingHours: '24/7',
-  //   },
-  // });
+  const op2 = await prisma.operator.upsert({
+    where: { id: 2 },
+    update: {},
+    create: {
+      title: 'VoltCity Inc.',
+      contact: '+1 555-300-4000',
+    },
+  });
 
-  // const st2 = await prisma.chargingStation.create({
-  //   data: {
-  //     operatorId: op2.id,
-  //     title: 'Airport Station',
-  //     address: '1 Terminal Rd',
-  //     latitude: 40.6413,
-  //     longitude: -73.7781,
-  //     powerType: 'DC',
-  //     isActive: true,
-  //     workingHours: '06:00-23:00',
-  //   },
-  // });
+  // Seed stations
+  const st1 = await prisma.chargingStation.create({
+    data: {
+      operatorId: op1.id,
+      title: 'Downtown Station',
+      address: '123 Main St',
+      latitude: 40.7128,
+      longitude: -74.006,
+      powerType: 'AC',
+      isActive: true,
+      workingHours: '24/7',
+      ocppStationId: 'CP001',
+      isOnline: false,
+      lastHeartbeat: new Date(),
 
-  // const cnt = await prisma.connectorType.create({
-  //   data: {
-  //     name: 'CCS2',
-  //     picture: 'https://example.com/ccs2.png',
-  //   },
-  // });
+    },
+  });
 
-  // const cnt1 = await prisma.connectorType.create({
-  //   data: {
-  //     name: 'DDRC',
-  //     picture: 'https://example.com/ccs2.png',
-  //   },
-  // });
+  const st2 = await prisma.chargingStation.create({
+    data: {
+      operatorId: op2.id,
+      title: 'Airport Station',
+      address: '1 Terminal Rd',
+      latitude: 40.6413,
+      longitude: -73.7781,
+      powerType: 'DC',
+      isActive: true,
+      workingHours: '06:00-23:00',
+      ocppStationId: 'CP002',
+      isOnline: false,
+      lastHeartbeat: new Date(),
 
-  // // Seed connectors
-  // await prisma.connector.createMany({
-  //   data: [
-  //     {
-  //       stationId: st1.id,
-  //       typeId: cnt.id,
-  //       powerKw: 150,
-  //       status: ConnectorStatus.AVAILABLE,
-  //     },
-  //     {
-  //       stationId: st1.id,
-  //       typeId: cnt1.id,
-  //       powerKw: 22,
-  //       status: ConnectorStatus.AVAILABLE,
-  //     },
-  //     {
-  //       stationId: st2.id,
-  //       typeId: cnt.id,
-  //       powerKw: 50,
-  //       status: ConnectorStatus.OUT_OF_SERVICE,
-  //     },
-  //   ],
-  // });
+    },
+  });
+
+  const cnt = await prisma.connectorType.create({
+    data: {
+      name: 'CCS2',
+      picture: 'https://example.com/ccs2.png',
+    },
+  });
+
+  const cnt1 = await prisma.connectorType.create({
+    data: {
+      name: 'DDRC',
+      picture: 'https://example.com/ccs2.png',
+    },
+  });
+
+  // Seed connectors
+  await prisma.connector.createMany({
+    data: [
+      {
+        stationId: st1.id,
+        typeId: cnt.id,
+        powerKw: 150,
+        status: ConnectorStatus.AVAILABLE,
+      },
+      {
+        stationId: st1.id,
+        typeId: cnt1.id,
+        powerKw: 22,
+        status: ConnectorStatus.AVAILABLE,
+      },
+      {
+        stationId: st2.id,
+        typeId: cnt.id,
+        powerKw: 50,
+        status: ConnectorStatus.OUT_OF_SERVICE,
+      },
+    ],
+  });
 
   console.log('Seed completed');
 }

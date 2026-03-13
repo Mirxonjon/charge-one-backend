@@ -1,6 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
-import { ConnectorStatus, SessionStatus } from '@prisma/client';
+import { ChargingStation, ConnectorStatus, SessionStatus } from '@prisma/client';
 import { FrontendGateway } from '../socket/frontend.gateway';
 
 @Injectable()
@@ -12,113 +12,213 @@ export class OcppService {
         private readonly frontendGateway: FrontendGateway
     ) { }
 
-    public async handleBootNotification(stationId: string, payload: any) {
-        this.logger.log(`[${stationId}] BootNotification: ${JSON.stringify(payload)}`);
+    // ─── Private Helpers ──────────────────────────────────────────────────────
 
-        // Verify if station exists
+    /**
+     * Finds a ChargingStation by its OCPP station ID (e.g. "CP001").
+     * Returns null if not found.
+     */
+    private async findStation(ocppStationId: string): Promise<ChargingStation | null> {
         const station = await this.prisma.chargingStation.findFirst({
-            where: { id: parseInt(stationId.replace(/[^0-9]/g, '')) || 1 } // Naive map for test
+            where: { ocppStationId },
         });
+        if (!station) {
+            this.logger.warn(`Station with ocppStationId="${ocppStationId}" not found in DB.`);
+        }
+        return station;
+    }
 
-        if (station) {
-            this.logger.debug(`Station found: ${station.title}`);
+    /**
+     * Finds a Connector using the station DB id and the OCPP connectorNumber.
+     * Returns null if not found.
+     */
+    private async findConnector(stationDbId: number, connectorNumber: number) {
+        const connector = await this.prisma.connector.findUnique({
+            where: {
+                stationId_connectorNumber: {
+                    stationId: stationDbId,
+                    connectorNumber,
+                },
+            },
+        });
+        if (!connector) {
+            this.logger.warn(
+                `Connector #${connectorNumber} not found for station DB id=${stationDbId}.`
+            );
+        }
+        return connector;
+    }
+
+    // ─── Station Online/Offline Tracking ──────────────────────────────────────
+
+    public async handleStationConnected(ocppStationId: string) {
+        const result = await this.prisma.chargingStation.updateMany({
+            where: { ocppStationId },
+            data: { isOnline: true },
+        });
+        if (result.count === 0) {
+            this.logger.warn(`[${ocppStationId}] handleStationConnected: no station found, isOnline not updated.`);
+        } else {
+            this.logger.log(`[${ocppStationId}] Station marked ONLINE.`);
+        }
+    }
+
+    public async handleStationDisconnected(ocppStationId: string) {
+        const result = await this.prisma.chargingStation.updateMany({
+            where: { ocppStationId },
+            data: { isOnline: false },
+        });
+        if (result.count === 0) {
+            this.logger.warn(`[${ocppStationId}] handleStationDisconnected: no station found, isOnline not updated.`);
+        } else {
+            this.logger.log(`[${ocppStationId}] Station marked OFFLINE.`);
+        }
+    }
+
+    // ─── OCPP Message Handlers ────────────────────────────────────────────────
+
+    public async handleBootNotification(ocppStationId: string, payload: any) {
+        this.logger.log(`[${ocppStationId}] BootNotification: ${JSON.stringify(payload)}`);
+
+        // Update online status and heartbeat directly by ocppStationId
+        const result = await this.prisma.chargingStation.updateMany({
+            where: { ocppStationId },
+            data: { isOnline: true, lastHeartbeat: new Date() },
+        });
+        if (result.count > 0) {
+            this.logger.debug(`[${ocppStationId}] Station marked ONLINE via BootNotification.`);
+        } else {
+            this.logger.warn(`[${ocppStationId}] BootNotification: station not found in DB — ocppStationId not set?`);
         }
 
-        // Default Accepted response for simulator
         return {
             status: 'Accepted',
             currentTime: new Date().toISOString(),
-            interval: 30, // Heartbeat interval in seconds
+            interval: 30,
         };
     }
 
-    public async handleStatusNotification(stationId: string, payload: any) {
-        this.logger.log(`[${stationId}] StatusNotification: ${JSON.stringify(payload)}`);
+    public async handleStatusNotification(ocppStationId: string, payload: any) {
+        this.logger.log(`[${ocppStationId}] StatusNotification: ${JSON.stringify(payload)}`);
 
-        // connectorId: 1, status: "Available"
-        const { connectorId, status, errorCode } = payload;
+        const { connectorId, status } = payload;
 
         if (connectorId && status) {
+            const station = await this.findStation(ocppStationId);
+            if (!station) return {};
+
+            const connector = await this.findConnector(station.id, connectorId);
+            if (!connector) return {};
+
             try {
                 const mappedStatus: ConnectorStatus = this.mapStatus(status);
 
-                // In a real app we need to map `stationId` and `connectorId` to the actual Database IDs
-                // For simplicity, we assume `connectorId` from payload maps to our Prisma `Connector.id`
                 await this.prisma.connector.update({
-                    where: { id: connectorId },
-                    data: { status: mappedStatus }
+                    where: { id: connector.id },
+                    data: { status: mappedStatus },
                 });
 
                 await this.prisma.connectorStatusLog.create({
                     data: {
                         status: mappedStatus,
-                        connectorId: parseInt(connectorId) || 1, // Fallback purely for mock
-                        timestamp: new Date()
-                    }
+                        connectorId: connector.id,
+                        timestamp: new Date(),
+                    },
                 });
 
-                this.frontendGateway.emitConnectorStatus(stationId, connectorId, status);
+                this.frontendGateway.emitConnectorStatus(ocppStationId, connectorId, status);
 
             } catch (error) {
-                this.logger.error(`Failed to update Status for connector ${connectorId}: ${error.message}`);
+                this.logger.error(
+                    `Failed to update Status for connector #${connectorId} on ${ocppStationId}: ${error.message}`
+                );
             }
         }
 
-        return {}; // StatusNotification responds with empty payload
+        return {};
     }
 
-    public async handleHeartbeat(stationId: string, payload: any) {
-        this.logger.debug(`[${stationId}] Heartbeat`);
+    public async handleHeartbeat(ocppStationId: string, payload: any) {
+        this.logger.debug(`[${ocppStationId}] Heartbeat`);
+
+        const station = await this.findStation(ocppStationId);
+        if (station) {
+            await this.prisma.chargingStation.update({
+                where: { id: station.id },
+                data: { lastHeartbeat: new Date() },
+            });
+        }
+
         return {
             currentTime: new Date().toISOString(),
         };
     }
 
-    public async handleStartTransaction(stationId: string, payload: any) {
-        this.logger.log(`[${stationId}] StartTransaction: ${JSON.stringify(payload)}`);
+    public async handleStartTransaction(ocppStationId: string, payload: any) {
+        this.logger.log(`[${ocppStationId}] StartTransaction: ${JSON.stringify(payload)}`);
         const { connectorId, idTag, meterStart, timestamp } = payload;
 
         try {
-            // Create a new Charging Session in the database
-            const session = await this.prisma.chargingSession.create({
-                data: {
-                    connector: { connect: { id: parseInt(connectorId) || 1 } },
+            const station = await this.findStation(ocppStationId);
+            if (!station) {
+                return { transactionId: 0, idTagInfo: { status: 'Rejected' } };
+            }
+
+            const connector = await this.findConnector(station.id, connectorId);
+            if (!connector) {
+                return { transactionId: 0, idTagInfo: { status: 'Rejected' } };
+            }
+
+            // Try to reuse a pre-created session (from remoteStartSession) for this connector.
+            // This prevents duplicate sessions when the flow is: API → RemoteStartTransaction → station StartTransaction.
+            const userId = parseInt(idTag) || 1;
+            const existingSession = await this.prisma.chargingSession.findFirst({
+                where: {
+                    connectorId: connector.id,
+                    userId,
                     status: SessionStatus.ACTIVE,
-                    energyKwh: 0,
-                    cost: 0,
-                    startTime: new Date(timestamp || Date.now()),
-                    user: { connect: { id: parseInt(idTag) || 1 } }
-                }
+                },
+                orderBy: { startTime: 'desc' },
             });
 
-            // Answer with the generated transactionId (session.id)
+            const session = existingSession
+                ? await this.prisma.chargingSession.update({
+                    where: { id: existingSession.id },
+                    data: { startTime: new Date(timestamp || Date.now()) },
+                })
+                : await this.prisma.chargingSession.create({
+                    data: {
+                        connector: { connect: { id: connector.id } },
+                        status: SessionStatus.ACTIVE,
+                        energyKwh: 0,
+                        cost: 0,
+                        startTime: new Date(timestamp || Date.now()),
+                        user: { connect: { id: userId } },
+                    },
+                });
+
             return {
                 transactionId: session.id,
-                idTagInfo: {
-                    status: "Accepted"
-                }
+                idTagInfo: { status: 'Accepted' },
             };
+
         } catch (e) {
             this.logger.error(`Failed StartTransaction: ${e.message}`);
-            // Fallback transaction ID if db fails for simulator to keep running
             return {
                 transactionId: Math.floor(Math.random() * 10000) + 1000,
-                idTagInfo: { status: "Rejected" }
-            }
+                idTagInfo: { status: 'Rejected' },
+            };
         }
     }
 
-    public async handleMeterValues(stationId: string, payload: any) {
-        // Meter value comes every 10 seconds.
-        // console.log(`[${stationId}] MeterValues: ${JSON.stringify(payload)}`);
-
+    public async handleMeterValues(ocppStationId: string, payload: any) {
         const { connectorId, transactionId, meterValue } = payload;
 
         if (!transactionId || !meterValue || !Array.isArray(meterValue)) {
             return {};
         }
 
-        const latestSample = meterValue[meterValue.length - 1]; // latest timeline block
+        const latestSample = meterValue[meterValue.length - 1];
         if (latestSample && latestSample.sampledValue) {
 
             let powerW = 0;
@@ -135,34 +235,37 @@ export class OcppService {
 
             const energyKwh = totalEnergyWh / 1000;
 
-            // Fetch dynamic price
             const session = await this.prisma.chargingSession.findUnique({
                 where: { id: transactionId },
                 include: {
                     connector: {
                         include: {
-                            station: { include: { pricing: true } }
-                        }
-                    }
-                }
+                            station: { include: { pricing: true } },
+                        },
+                    },
+                },
             });
 
-            // Determine price: Connector specific price first, then Station specific price, then fallback 2500
-            const pricePerKwh = session?.connector?.pricePerKwh
-                || session?.connector?.station?.pricing?.pricePerKwh
-                || 2500;
+            const pricePerKwh =
+                session?.connector?.pricePerKwh ||
+                session?.connector?.station?.pricing?.pricePerKwh ||
+                2500;
 
-            // Update active session with current consumed energy
             try {
                 const currentSession = await this.prisma.chargingSession.update({
                     where: { id: transactionId },
                     data: {
                         energyKwh: energyKwh,
-                        cost: energyKwh * pricePerKwh // Dynamic cost calculation
-                    }
+                        cost: energyKwh * pricePerKwh,
+                    },
                 });
 
-                this.frontendGateway.emitSessionMeterUpdated(transactionId, energyKwh, powerW, currentSession.cost);
+                this.frontendGateway.emitSessionMeterUpdated(
+                    transactionId,
+                    energyKwh,
+                    powerW,
+                    currentSession.cost
+                );
             } catch (e) {
                 this.logger.error(`Error updating session meter for tx ${transactionId}`);
             }
@@ -171,28 +274,28 @@ export class OcppService {
         return {};
     }
 
-    public async handleStopTransaction(stationId: string, payload: any) {
-        this.logger.log(`[${stationId}] StopTransaction: ${JSON.stringify(payload)}`);
-        const { transactionId, meterStop, timestamp, idTag } = payload;
+    public async handleStopTransaction(ocppStationId: string, payload: any) {
+        this.logger.log(`[${ocppStationId}] StopTransaction: ${JSON.stringify(payload)}`);
+        const { transactionId, meterStop, timestamp } = payload;
 
         try {
-            const finalEnergyKwh = meterStop ? (meterStop / 1000) : 0;
+            const finalEnergyKwh = meterStop ? meterStop / 1000 : 0;
 
-            // Fetch dynamic price
             const session = await this.prisma.chargingSession.findUnique({
                 where: { id: transactionId },
                 include: {
                     connector: {
                         include: {
-                            station: { include: { pricing: true } }
-                        }
-                    }
-                }
+                            station: { include: { pricing: true } },
+                        },
+                    },
+                },
             });
 
-            const pricePerKwh = session?.connector?.pricePerKwh
-                || session?.connector?.station?.pricing?.pricePerKwh
-                || 2500;
+            const pricePerKwh =
+                session?.connector?.pricePerKwh ||
+                session?.connector?.station?.pricing?.pricePerKwh ||
+                2500;
 
             const finalCost = finalEnergyKwh * pricePerKwh;
 
@@ -203,7 +306,7 @@ export class OcppService {
                     endTime: new Date(timestamp || Date.now()),
                     energyKwh: finalEnergyKwh > 0 ? finalEnergyKwh : undefined,
                     cost: finalCost > 0 ? finalCost : undefined,
-                }
+                },
             });
 
         } catch (e) {
@@ -211,21 +314,20 @@ export class OcppService {
         }
 
         return {
-            idTagInfo: {
-                status: "Accepted"
-            }
+            idTagInfo: { status: 'Accepted' },
         };
     }
 
-    // --- Utility ---
-    public handleIncomingCallResult(stationId: string, messageId: string, payload: any) {
-        this.logger.debug(`[${stationId}] Received CALLRESULT for msg ${messageId}:`, payload);
-        // Wait for accepted / rejected
+    // ─── Utility ──────────────────────────────────────────────────────────────
+
+    public handleIncomingCallResult(ocppStationId: string, messageId: string, payload: any) {
+        this.logger.debug(`[${ocppStationId}] Received CALLRESULT for msg ${messageId}:`, payload);
     }
 
     private mapStatus(status: string): ConnectorStatus {
         switch (status) {
-            case 'Available': return ConnectorStatus.AVAILABLE;
+            case 'Available':
+                return ConnectorStatus.AVAILABLE;
             case 'Occupied':
             case 'Charging':
             case 'Preparing':

@@ -35,6 +35,11 @@ export class OcppServer implements OnModuleInit, OnModuleDestroy {
             this.logger.log(`Station Connected: ${stationId}`);
             this.activeConnections.set(stationId, ws);
 
+            // Mark station online in DB
+            this.ocppService.handleStationConnected(stationId).catch(e =>
+                this.logger.error(`Failed to mark station ${stationId} online: ${e.message}`)
+            );
+
             ws.on('message', async (data: WebSocket.Data) => {
                 try {
                     // Parse the incoming string as an array (OCPP JSON RPC over WebSockets)
@@ -64,12 +69,18 @@ export class OcppServer implements OnModuleInit, OnModuleDestroy {
             ws.on('close', () => {
                 this.logger.log(`Station Disconnected: ${stationId}`);
                 this.activeConnections.delete(stationId);
+
+                // Mark station offline in DB
+                this.ocppService.handleStationDisconnected(stationId).catch(e =>
+                    this.logger.error(`Failed to mark station ${stationId} offline: ${e.message}`)
+                );
             });
 
             ws.on('error', (error) => {
                 this.logger.error(`WebSocket Error from ${stationId}: ${error.message}`);
             });
         });
+
     }
 
     private async handleIncomingCall(ws: WebSocket, stationId: string, messageId: string, action: string, payload: any) {

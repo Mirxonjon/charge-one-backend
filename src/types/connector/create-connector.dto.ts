@@ -29,4 +29,12 @@ export class CreateConnectorDto {
   @Type(() => Number)
   @IsNumber()
   pricePerKwh?: number;
+
+  @ApiProperty({
+    example: 1,
+    description: 'OCPP connector number used inside OCPP messages (connectorId). Must be unique per station.',
+  })
+  @Type(() => Number)
+  @IsNumber()
+  connectorNumber: number;
 }

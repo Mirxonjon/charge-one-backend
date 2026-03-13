@@ -133,8 +133,9 @@ model UserCar {
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
-  user User @relation(fields: [userId], references: [id])
-  car  Car  @relation(fields: [carId], references: [id])
+  user             User              @relation(fields: [userId], references: [id])
+  car              Car               @relation(fields: [carId], references: [id])
+  chargingSessions ChargingSession[]
 
   @@index([userId])
   @@index([carId])
@@ -197,40 +198,48 @@ model Operator {
 }
 
 model ChargingStation {
-  id           Int              @id @default(autoincrement())
-  operatorId   Int
-  operator     Operator         @relation(fields: [operatorId], references: [id])
-  title        String
-  address      String?
-  latitude     Float
-  longitude    Float
-  powerType    StationPowerType
-  isActive     Boolean          @default(true)
-  workingHours String?
-  Discount     Discount?
-  connectors   Connector[]
-  pricing      StationPricing?
-  StationLike  StationLike[]
-  createdAt    DateTime         @default(now())
-  updatedAt    DateTime         @updatedAt
+  id            Int              @id @default(autoincrement())
+  operatorId    Int
+  operator      Operator         @relation(fields: [operatorId], references: [id])
+  title         String
+  address       String?
+  latitude      Float
+  longitude     Float
+  powerType     StationPowerType
+  isActive      Boolean          @default(true)
+  workingHours  String?
+  // OCPP integration fields
+  ocppStationId String?          @unique // ChargePoint identity used in WebSocket URL e.g. "CP001"
+  isOnline      Boolean          @default(false)
+  lastHeartbeat DateTime?
+  Discount      Discount?
+  connectors    Connector[]
+  pricing       StationPricing?
+  StationLike   StationLike[]
+  createdAt     DateTime         @default(now())
+  updatedAt     DateTime         @updatedAt
 
   @@index([operatorId])
+  @@index([ocppStationId])
 }
 
 model Connector {
-  id          Int                  @id @default(autoincrement())
-  stationId   Int
-  station     ChargingStation      @relation(fields: [stationId], references: [id])
-  typeId      Int?  
-  connectorType ConnectorType?       @relation(fields: [typeId], references: [id])
-  powerKw     Float
-  status      ConnectorStatus      @default(AVAILABLE)
-  pricePerKwh Float?
-  sessions    ChargingSession[]
-  statusLogs  ConnectorStatusLog[]
-  createdAt   DateTime             @default(now())
-  updatedAt   DateTime             @updatedAt
+  id              Int                  @id @default(autoincrement())
+  stationId       Int
+  station         ChargingStation      @relation(fields: [stationId], references: [id])
+  typeId          Int?
+  connectorType   ConnectorType?       @relation(fields: [typeId], references: [id])
+  powerKw         Float
+  status          ConnectorStatus      @default(AVAILABLE)
+  pricePerKwh     Float?
+  // OCPP connector number (matches connectorId in OCPP messages, e.g. 1, 2, ...)
+  connectorNumber Int                  @default(1)
+  sessions        ChargingSession[]
+  statusLogs      ConnectorStatusLog[]
+  createdAt       DateTime             @default(now())
+  updatedAt       DateTime             @updatedAt
 
+  @@unique([stationId, connectorNumber])
   @@index([stationId])
 }
 
@@ -276,6 +285,8 @@ model ChargingSession {
   user        User          @relation(fields: [userId], references: [id])
   connectorId Int
   connector   Connector     @relation(fields: [connectorId], references: [id])
+  userCarId   Int?
+  userCar     UserCar?      @relation(fields: [userCarId], references: [id])
   energyKwh   Float         @default(0)
   cost        Float         @default(0)
   status      SessionStatus @default(ACTIVE)

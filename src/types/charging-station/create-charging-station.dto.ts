@@ -42,4 +42,12 @@ export class CreateChargingStationDto {
   @IsOptional()
   @IsString()
   workingHours?: string;
+
+  @ApiPropertyOptional({
+    example: 'CP001',
+    description: 'OCPP ChargePoint identity used in the WebSocket URL (e.g. ws://host/ocpp/CP001)',
+  })
+  @IsOptional()
+  @IsString()
+  ocppStationId?: string;
 }
