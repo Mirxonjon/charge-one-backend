@@ -1,5 +1,25 @@
-import { Body, Controller, Delete, Get, HttpCode, HttpStatus, Param, ParseIntPipe, Patch, Post, Query, UseGuards } from '@nestjs/common';
-import { ApiBearerAuth, ApiBody, ApiOperation, ApiQuery, ApiResponse, ApiTags } from '@nestjs/swagger';
+import {
+  Body,
+  Controller,
+  Delete,
+  Get,
+  HttpCode,
+  HttpStatus,
+  Param,
+  ParseIntPipe,
+  Patch,
+  Post,
+  Query,
+  UseGuards,
+} from '@nestjs/common';
+import {
+  ApiBearerAuth,
+  ApiBody,
+  ApiOperation,
+  ApiQuery,
+  ApiResponse,
+  ApiTags,
+} from '@nestjs/swagger';
 import { OperatorService } from './operator.service';
 import { JwtAuthGuard } from '@/modules/auth/guards/jwt-auth.guard';
 import { RolesGuard } from '@/modules/auth/guards/roles.guard';
@@ -10,13 +30,14 @@ import { FilterOperatorDto } from '@/types/operator/filter-operator.dto';
 
 @ApiTags('Operator')
 @ApiBearerAuth()
-@UseGuards(JwtAuthGuard, RolesGuard)
+// @UseGuards(JwtAuthGuard, RolesGuard)
 @Controller('operators')
 export class OperatorController {
   constructor(private readonly service: OperatorService) {}
 
   @Post()
   @Roles('ADMIN')
+  @UseGuards(JwtAuthGuard, RolesGuard)
   @HttpCode(HttpStatus.CREATED)
   @ApiOperation({ summary: 'Create operator (ADMIN)' })
   @ApiBody({ type: CreateOperatorDto })
@@ -44,13 +65,18 @@ export class OperatorController {
 
   @Patch(':id')
   @Roles('ADMIN')
+  @UseGuards(JwtAuthGuard, RolesGuard)
   @ApiOperation({ summary: 'Update operator (ADMIN)' })
-  update(@Param('id', ParseIntPipe) id: number, @Body() dto: UpdateOperatorDto) {
+  update(
+    @Param('id', ParseIntPipe) id: number,
+    @Body() dto: UpdateOperatorDto
+  ) {
     return this.service.update(id, dto);
   }
 
   @Delete(':id')
   @Roles('ADMIN')
+  @UseGuards(JwtAuthGuard, RolesGuard)
   @ApiOperation({ summary: 'Delete operator (ADMIN)' })
   remove(@Param('id', ParseIntPipe) id: number) {
     return this.service.remove(id);
