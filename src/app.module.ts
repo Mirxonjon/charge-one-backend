@@ -33,6 +33,7 @@ import { NotificationModule } from './modules/notification/notification.module';
 import { ConnectorTypeModule } from './modules/connector-type/connector-type.module';
 import { OcppModule } from './modules/ocpp/ocpp.module';
 import { SocketModule } from './modules/socket/socket.module';
+import { ClickModule } from './modules/click/click.module';
 @Module({
   imports: [
     ConfigModule.forRoot({
@@ -71,6 +72,7 @@ import { SocketModule } from './modules/socket/socket.module';
     NotificationModule,
     OcppModule,
     SocketModule,
+    ClickModule,
   ],
   providers: [
     {

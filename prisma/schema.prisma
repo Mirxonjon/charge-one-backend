@@ -46,6 +46,7 @@ model User {
   userCars     UserCar[]
   Cars         Car[]
   Wallet       Wallet[]
+  savedCards   SavedCard[]
   StationLike  StationLike[]
   Notification Notification[]
   UserDevice   UserDevice[]
@@ -453,4 +454,32 @@ model UserDevice {
   createdAt   DateTime @default(now())
 
   user User @relation(fields: [userId], references: [id])
+}
+
+// ==========================================
+// Click Integration Models
+// ==========================================
+
+model SavedCard {
+  id         Int      @id @default(autoincrement())
+  userId     Int
+  user       User     @relation(fields: [userId], references: [id])
+  cardToken  String   @unique
+  cardNumber String // Masked, e.g. 860012******3456
+  isVerified Boolean  @default(false)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@index([userId])
+}
+
+model ClickTransaction {
+  id              Int      @id @default(autoincrement())
+  clickTransId    BigInt   @unique // Provided by Click
+  merchantTransId String   @unique // Our internal mapping to WalletTransaction.id or invoice String
+  amount          Decimal
+  status          Int // Click statuses (0 = prepare, 1 = complete, -1 = cancelled, etc)
+  signTime        String
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
 }
