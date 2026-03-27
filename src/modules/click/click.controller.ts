@@ -55,7 +55,7 @@ export class ClickController {
     @ApiOperation({ summary: 'Verify the added card with SMS code (Tokenization Step 2)' })
     async verifyCard(@Req() req: Request, @Body() dto: VerifyCardDto) {
         const userId = (req as any).user.sub;
-        return this.clickService.verifyCardToken(userId, dto.cardToken, dto.smsCode);
+        return this.clickService.verifyCardToken(userId, dto.cardId, dto.smsCode);
     }
 
     @Post('cards/pay')
@@ -64,6 +64,6 @@ export class ClickController {
     @ApiOperation({ summary: 'Top up wallet using a verified saved card (Tokenization Step 3)' })
     async payWithToken(@Req() req: Request, @Body() dto: PayWithTokenDto) {
         const userId = (req as any).user.sub;
-        return this.clickService.payWithToken(userId, dto.cardToken, dto.amount);
+        return this.clickService.payWithToken(userId, dto.cardId, dto.amount);
     }
 }

@@ -229,8 +229,8 @@ export class ClickService {
 
             const cardToken = data.card_token;
 
-            // Save to database as unverified
-            await this.prisma.savedCard.upsert({
+            // Save to database as unverified (token stays backend-only)
+            const savedCard = await this.prisma.savedCard.upsert({
                 where: { cardToken },
                 update: {},
                 create: {
@@ -241,7 +241,8 @@ export class ClickService {
                 },
             });
 
-            return { success: true, message: 'SMS code sent', phone: data.phone_number, cardToken };
+            // Return only the DB id — never expose cardToken to frontend
+            return { success: true, message: 'SMS code sent', phone: data.phone_number, cardId: savedCard.id };
         } catch (e) {
             this.logger.error('Click Add Card Error', e);
             throw new HttpException(e.message, HttpStatus.BAD_REQUEST);
@@ -249,17 +250,18 @@ export class ClickService {
     }
 
     // 4. VERIFY SMS CODE
-    async verifyCardToken(userId: number, cardToken: string, smsCode: string) {
+    async verifyCardToken(userId: number, cardId: number, smsCode: string) {
         const { SERVICE_ID } = this.ENV;
 
-        const savedCard = await this.prisma.savedCard.findUnique({ where: { cardToken } });
+        // Lookup token by ID — token never leaves the backend
+        const savedCard = await this.prisma.savedCard.findUnique({ where: { id: cardId } });
         if (!savedCard || savedCard.userId !== userId) {
-            throw new BadRequestException('Card token not found');
+            throw new BadRequestException('Card not found');
         }
 
         const payload = {
             service_id: parseInt(SERVICE_ID),
-            card_token: cardToken,
+            card_token: savedCard.cardToken, // used internally only
             sms_code: smsCode,
         };
 
@@ -276,7 +278,7 @@ export class ClickService {
             }
 
             await this.prisma.savedCard.update({
-                where: { cardToken },
+                where: { id: cardId },
                 data: { isVerified: true },
             });
 
@@ -288,10 +290,11 @@ export class ClickService {
     }
 
     // 5. PAY WITH SAVED TOKEN
-    async payWithToken(userId: number, cardToken: string, amount: number) {
+    async payWithToken(userId: number, cardId: number, amount: number) {
         if (amount <= 0) throw new BadRequestException('Invalid amount');
 
-        const savedCard = await this.prisma.savedCard.findUnique({ where: { cardToken } });
+        // Lookup token by ID — token never leaves the backend
+        const savedCard = await this.prisma.savedCard.findUnique({ where: { id: cardId } });
         if (!savedCard || savedCard.userId !== userId || !savedCard.isVerified) {
             throw new BadRequestException('Card not verified or found');
         }
@@ -315,7 +318,7 @@ export class ClickService {
         const { SERVICE_ID } = this.ENV;
         const payload = {
             service_id: parseInt(SERVICE_ID),
-            card_token: cardToken,
+            card_token: savedCard.cardToken, // resolved from DB by cardId — never from frontend
             amount: amount,
             merchant_trans_id: tx.id.toString(),
         };
@@ -359,7 +362,8 @@ export class ClickService {
     async getSavedCards(userId: number) {
         return this.prisma.savedCard.findMany({
             where: { userId, isVerified: true },
-            select: { cardToken: true, cardNumber: true, createdAt: true },
+            // cardToken is intentionally excluded — never expose to frontend
+            select: { id: true, cardNumber: true, createdAt: true },
         });
     }
 

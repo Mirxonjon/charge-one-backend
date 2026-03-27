@@ -26,10 +26,10 @@ export class AddCardDto {
 }
 
 export class VerifyCardDto {
-    @ApiProperty({ description: 'Token received from AddCard operation' })
+    @ApiProperty({ description: 'Card ID received from AddCard operation', example: 1 })
     @IsNotEmpty()
-    @IsString()
-    cardToken: string;
+    @IsNumber()
+    cardId: number;
 
     @ApiProperty({ description: 'SMS code sent to the users phone', example: '12345' })
     @IsNotEmpty()
@@ -38,10 +38,10 @@ export class VerifyCardDto {
 }
 
 export class PayWithTokenDto {
-    @ApiProperty({ description: 'Verified card token' })
+    @ApiProperty({ description: 'ID of the verified saved card', example: 1 })
     @IsNotEmpty()
-    @IsString()
-    cardToken: string;
+    @IsNumber()
+    cardId: number;
 
     @ApiProperty({ description: 'Amount to pay in UZS', example: 50000 })
     @IsNotEmpty()
