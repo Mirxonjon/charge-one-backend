@@ -1,4 +1,4 @@
-import { Controller, Post, Get, Body, Req, UseGuards, HttpException, HttpStatus } from '@nestjs/common';
+import { Controller, Post, Get, Delete, Param, ParseIntPipe, Body, Req, UseGuards } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiBearerAuth, ApiHeader } from '@nestjs/swagger';
 import { ClickService } from './click.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
@@ -25,9 +25,6 @@ export class ClickController {
     @ApiOperation({ summary: 'Click Webhook for Prepare/Complete actions' })
     @ApiHeader({ name: 'click_sign_string', description: 'MD5 hash from Click' })
     async clickCallback(@Body() body: any) {
-        // Click expects application/x-www-form-urlencoded matching this structure:
-        // { click_trans_id, service_id, click_paydoc_id, merchant_trans_id, amount, action, error, error_note, sign_time, sign_string }
-        // Note: click sends these as strings.
         return this.clickService.handleCallback(body);
     }
 
@@ -65,5 +62,14 @@ export class ClickController {
     async payWithToken(@Req() req: Request, @Body() dto: PayWithTokenDto) {
         const userId = (req as any).user.sub;
         return this.clickService.payWithToken(userId, dto.cardId, dto.amount);
+    }
+
+    @Delete('cards/:id')
+    @UseGuards(JwtAuthGuard)
+    @ApiBearerAuth()
+    @ApiOperation({ summary: 'Delete a saved card by ID' })
+    async deleteCard(@Req() req: Request, @Param('id', ParseIntPipe) cardId: number) {
+        const userId = (req as any).user.sub;
+        return this.clickService.deleteCard(userId, cardId);
     }
 }

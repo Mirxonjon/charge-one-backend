@@ -367,6 +367,19 @@ export class ClickService {
         });
     }
 
+    // 6. DELETE SAVED CARD
+    async deleteCard(userId: number, cardId: number) {
+        const savedCard = await this.prisma.savedCard.findUnique({ where: { id: cardId } });
+
+        if (!savedCard || savedCard.userId !== userId) {
+            throw new BadRequestException('Card not found or access denied');
+        }
+
+        await this.prisma.savedCard.delete({ where: { id: cardId } });
+
+        return { success: true, message: 'Card deleted successfully' };
+    }
+
     private maskCard(cardNumber: string) {
         if (cardNumber.length === 16) {
             return `${cardNumber.slice(0, 6)}******${cardNumber.slice(12)}`;
