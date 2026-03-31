@@ -331,7 +331,7 @@ export class ClickService {
             service_id: parseInt(SERVICE_ID),
             card_token: savedCard.cardToken, // resolved from DB by cardId — never from frontend
             amount: amount,
-            merchant_trans_id: tx.id.toString(),
+            transaction_param: tx.id.toString(),
         };
 
         try {
