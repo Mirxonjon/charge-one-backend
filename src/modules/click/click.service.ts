@@ -216,9 +216,11 @@ export class ClickService {
         };
 
         try {
+            const headers = this.getAuthHeaders();
+            this.logger.log(`[CLICK API REQUEST]: ${this.CLICK_API_URL}/request | Headers: ${JSON.stringify(headers)} | Body: ${JSON.stringify(payload)}`);
             const res = await fetch(`${this.CLICK_API_URL}/request`, {
                 method: 'POST',
-                headers: this.getAuthHeaders(),
+                headers,
                 body: JSON.stringify(payload),
             });
             const data = await res.json() as any;
@@ -266,9 +268,11 @@ export class ClickService {
         };
 
         try {
+            const headers = this.getAuthHeaders();
+            this.logger.log(`[CLICK API REQUEST]: ${this.CLICK_API_URL}/verify | Headers: ${JSON.stringify(headers)} | Body: ${JSON.stringify(payload)}`);
             const res = await fetch(`${this.CLICK_API_URL}/verify`, {
                 method: 'POST',
-                headers: this.getAuthHeaders(),
+                headers,
                 body: JSON.stringify(payload),
             });
             const data = await res.json() as any;
@@ -324,9 +328,11 @@ export class ClickService {
         };
 
         try {
+            const headers = this.getAuthHeaders();
+            this.logger.log(`[CLICK API REQUEST]: ${this.CLICK_API_URL}/payment | Headers: ${JSON.stringify(headers)} | Body: ${JSON.stringify(payload)}`);
             const res = await fetch(`${this.CLICK_API_URL}/payment`, {
                 method: 'POST',
-                headers: this.getAuthHeaders(),
+                headers,
                 body: JSON.stringify(payload),
             });
             const data = await res.json() as any;
