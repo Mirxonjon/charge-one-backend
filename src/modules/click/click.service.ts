@@ -127,9 +127,9 @@ export class ClickService {
                 });
 
                 return {
-                    click_trans_id,
-                    merchant_trans_id,
-                    merchant_prepare_id: walletTxId, // We use standard walletTxId as prepare ID
+                    click_trans_id: Number(click_trans_id),
+                    merchant_trans_id: String(merchant_trans_id),
+                    merchant_prepare_id: Number(walletTxId), // We use standard walletTxId as prepare ID
                     error: 0,
                     error_note: 'Success',
                 };
@@ -172,9 +172,9 @@ export class ClickService {
                 });
 
                 return {
-                    click_trans_id,
-                    merchant_trans_id,
-                    merchant_confirm_id: walletTxId,
+                    click_trans_id: Number(click_trans_id),
+                    merchant_trans_id: String(merchant_trans_id),
+                    merchant_confirm_id: Number(walletTxId),
                     error: 0,
                     error_note: 'Success',
                 };
