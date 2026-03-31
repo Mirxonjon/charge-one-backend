@@ -1,4 +1,4 @@
-import { Controller, Post, Get, Delete, Param, ParseIntPipe, Body, Req, UseGuards } from '@nestjs/common';
+import { Controller, Post, Get, Delete, Param, ParseIntPipe, Body, Req, UseGuards, HttpCode, HttpStatus } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiBearerAuth, ApiHeader } from '@nestjs/swagger';
 import { ClickService } from './click.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
@@ -22,6 +22,7 @@ export class ClickController {
 
     // Click Webhook (Public, secured by Click MD5 signature)
     @Post('callback')
+    @HttpCode(HttpStatus.OK)
     @ApiOperation({ summary: 'Click Webhook for Prepare/Complete actions' })
     @ApiHeader({ name: 'click_sign_string', description: 'MD5 hash from Click' })
     async clickCallback(@Body() body: any) {
