@@ -26,7 +26,11 @@ export class ClickController {
     @ApiOperation({ summary: 'Click Webhook for Prepare/Complete actions' })
     @ApiHeader({ name: 'click_sign_string', description: 'MD5 hash from Click' })
     async clickCallback(@Body() body: any) {
-        return this.clickService.handleCallback(body);
+        const result = await this.clickService.handleCallback(body);
+        console.log('================ CLICK CALLBACK RESPONSE ================');
+        console.log(result);
+        console.log('=========================================================');
+        return result;
     }
 
     @Get('cards')

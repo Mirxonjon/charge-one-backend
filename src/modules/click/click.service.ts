@@ -96,7 +96,14 @@ export class ClickService {
             if (!walletTx) {
                 return { error: -5, error_note: 'TRANSACTION NOT FOUND' };
             }
-            if (parseFloat(walletTx.amount.toString()) !== parseFloat(amount)) {
+            const dbAmount = parseFloat(walletTx.amount.toString());
+            const clickAmount = parseFloat(amount);
+            
+            // Allow exact match or with 1% commission added by Click
+            const isExactMatch = Math.abs(dbAmount - clickAmount) < 0.01;
+            const isCommissionMatch = Math.abs((dbAmount * 1.01) - clickAmount) < 0.01;
+
+            if (!isExactMatch && !isCommissionMatch) {
                 return { error: -2, error_note: 'INCORRECT AMOUNT' };
             }
 
@@ -155,7 +162,7 @@ export class ClickService {
 
                     await tx.wallet.update({
                         where: { id: walletTx.walletId },
-                        data: { balance: { increment: amount } },
+                        data: { balance: { increment: walletTx.amount } }, // Add exact requested amount, without commission
                     });
 
                     await tx.clickTransaction.update({
