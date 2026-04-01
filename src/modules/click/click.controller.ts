@@ -1,8 +1,8 @@
-import { Controller, Post, Get, Delete, Param, ParseIntPipe, Body, Req, UseGuards, HttpCode, HttpStatus } from '@nestjs/common';
+import { Controller, Post, Get, Delete, Param, ParseIntPipe, Body, Req, UseGuards, HttpCode, HttpStatus, Res } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiBearerAuth, ApiHeader } from '@nestjs/swagger';
 import { ClickService } from './click.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
-import { Request } from 'express';
+import { Request, Response } from 'express';
 
 import { CreateInvoiceDto, AddCardDto, VerifyCardDto, PayWithTokenDto } from '../../types/click/click.dto';
 
@@ -25,13 +25,15 @@ export class ClickController {
     @HttpCode(HttpStatus.OK)
     @ApiOperation({ summary: 'Click Webhook for Prepare action' })
     @ApiHeader({ name: 'click_sign_string', description: 'MD5 hash from Click' })
-    async clickPrepare(@Body() body: any) {
+    async clickPrepare(@Body() body: any, @Res() res: Response) {
         try {
             const result = await this.clickService.prepare(body);
             console.log('================ CLICK PREPARE RESPONSE ================');
             console.log(result);
             console.log('========================================================');
-            return result;
+
+            res.set('Content-Type', 'application/x-www-form-urlencoded; charset=UTF-8')
+                .send(result);
         } catch (e) {
             return { error: -8, error_note: 'UNKNOWN ERROR' };
         }
