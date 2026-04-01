@@ -22,7 +22,7 @@ export class ClickController {
 
     // Click Webhook: PREPARE
     @Post('prepare')
-    @HttpCode(HttpStatus.OK)
+    // @HttpCode(HttpStatus.OK)
     @ApiOperation({ summary: 'Click Webhook for Prepare action' })
     @ApiHeader({ name: 'click_sign_string', description: 'MD5 hash from Click' })
     async clickPrepare(@Body() body: any) {
