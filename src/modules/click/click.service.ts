@@ -50,161 +50,197 @@ export class ClickService {
         return { success: true, url, transactionId: tx.id };
     }
 
-    // 2. WEBHOOK CALLBACK (Prepare & Complete)
+    // 2. WEBHOOK CALLBACK ROUTER
     async handleCallback(data: any) {
         try {
-            this.logger.log(`Click Callback Received: ${JSON.stringify(data)}`);
+            this.logger.log(`Click Callback Received [Action: ${data.action}]: ${JSON.stringify(data)}`);
 
-            const {
-                click_trans_id,
-                service_id,
-                click_paydoc_id,
-                merchant_trans_id,
-                amount,
-                action,
-                error,
-                error_note,
-                sign_time,
-                sign_string,
-                merchant_prepare_id,
-            } = data;
-
-            // Validate Signature
-            const isComplete = parseInt(action) === 1;
-            const { SECRET_KEY } = this.ENV;
-
-            const payload = `${click_trans_id}${service_id}${SECRET_KEY}${merchant_trans_id}${isComplete ? merchant_prepare_id : ''}${amount}${action}${sign_time}`;
-            const md5Hash = crypto.createHash('md5').update(payload).digest('hex');
-
-            if (md5Hash !== sign_string) {
-                this.logger.error('Invalid signature from Click', { expected: md5Hash, received: sign_string });
-                return { error: -1, error_note: 'SIGN CHECK FAILED' };
+            const action = parseInt(data.action);
+            if (action === 0) {
+                return await this.prepare(data);
+            } else if (action === 1) {
+                return await this.complete(data);
+            } else {
+                this.logger.warn(`Click Webhook Error: ACTION NOT FOUND - Action received: ${data.action}`);
+                return { error: -3, error_note: 'ACTION NOT FOUND' };
             }
-
-            if (!merchant_trans_id || merchant_trans_id.trim() === '') {
-                this.logger.log('Click AutoPay webhook without merchant_trans_id received. Returning error: 0 to let Token Payment proceed.');
-                return {
-                    click_trans_id: Number(click_trans_id),
-                    merchant_trans_id: merchant_trans_id || "",
-                    merchant_prepare_id: 0,
-                    merchant_confirm_id: 0,
-                    error: 0,
-                    error_note: 'Success',
-                };
-            }
-
-            // Check transaction existence in our DB
-            const walletTxId = parseInt(merchant_trans_id);
-            if (isNaN(walletTxId)) {
-                this.logger.warn(`Click Webhook Error: INVALID MERCHANT TRANS ID (NaN) - received: ${merchant_trans_id}`);
-                return { error: -5, error_note: 'INVALID MERCHANT TRANS ID' };
-            }
-
-            const walletTx = await this.prisma.walletTransaction.findUnique({
-                where: { id: walletTxId },
-                include: { wallet: true },
-            });
-
-            // Validations
-            if (!walletTx) {
-                this.logger.warn(`Click Webhook Error: TRANSACTION NOT FOUND - ID: ${walletTxId}`);
-                return { error: -5, error_note: 'TRANSACTION NOT FOUND' };
-            }
-            const dbAmount = parseFloat(walletTx.amount.toString());
-            const clickAmount = parseFloat(amount);
-
-            // Allow exact match or with 1% commission added by Click
-            const isExactMatch = Math.abs(dbAmount - clickAmount) < 0.01;
-            const isCommissionMatch = Math.abs((dbAmount * 1.01) - clickAmount) < 0.01;
-
-            if (!isExactMatch && !isCommissionMatch) {
-                this.logger.warn(`Click Webhook Error: INCORRECT AMOUNT - Expected: ${dbAmount} or ${dbAmount * 1.01}, Received: ${clickAmount} UZS`);
-                return { error: -2, error_note: 'INCORRECT AMOUNT' };
-            }
-
-            // Action 0: PREPARE
-            if (parseInt(action) === 0) {
-                if (walletTx.status !== 'PENDING') {
-                    this.logger.warn(`Click Webhook Error (Action 0): ALREADY PAID OR CANCELLED - Tx Status: ${walletTx.status}`);
-                    return { error: -4, error_note: 'ALREADY PAID OR CANCELLED' };
-                }
-
-                // Save prepare state to ClickTransaction
-                await this.prisma.clickTransaction.upsert({
-                    where: { clickTransId: BigInt(click_trans_id) },
-                    update: {},
-                    create: {
-                        clickTransId: BigInt(click_trans_id),
-                        merchantTransId: merchant_trans_id,
-                        amount,
-                        status: 0,
-                        signTime: sign_time,
-                    },
-                });
-
-                return {
-                    click_trans_id: Number(click_trans_id),
-                    merchant_trans_id: String(merchant_trans_id),
-                    merchant_prepare_id: Number(walletTxId), // We use standard walletTxId as prepare ID
-                    error: 0,
-                    error_note: 'Success',
-                };
-            }
-
-            // Action 1: COMPLETE
-            if (parseInt(action) === 1) {
-                if (walletTx.status === 'SUCCESS') {
-                    this.logger.warn(`Click Webhook Error (Action 1): ALREADY PAID - Tx Status is SUCCESS`);
-                    return { error: -4, error_note: 'ALREADY PAID' };
-                }
-                if (parseInt(error) < 0) {
-                    this.logger.warn(`Click Webhook Error (Action 1): TRANSACTION CANCELLED BY CLICK - Click error code: ${error}, note: ${error_note}`);
-                    // Transaction cancelled by Click
-                    await this.prisma.walletTransaction.update({
-                        where: { id: walletTxId },
-                        data: { status: 'FAILED' },
-                    });
-                    await this.prisma.clickTransaction.update({
-                        where: { clickTransId: BigInt(click_trans_id) },
-                        data: { status: -1 },
-                    });
-                    return { error: -9, error_note: 'TRANSACTION CANCELLED' }; // specific error mapping if needed
-                }
-
-                // Apply payment
-                await this.prisma.$transaction(async (tx) => {
-                    await tx.walletTransaction.update({
-                        where: { id: walletTxId },
-                        data: { status: 'SUCCESS' },
-                    });
-
-                    await tx.wallet.update({
-                        where: { id: walletTx.walletId },
-                        data: { balance: { increment: walletTx.amount } }, // Add exact requested amount, without commission
-                    });
-
-                    await tx.clickTransaction.update({
-                        where: { clickTransId: BigInt(click_trans_id) },
-                        data: { status: 1 },
-                    });
-                });
-
-                return {
-                    click_trans_id: Number(click_trans_id),
-                    merchant_trans_id: String(merchant_trans_id),
-                    merchant_confirm_id: Number(walletTxId),
-                    error: 0,
-                    error_note: 'Success',
-                };
-            }
-
-            this.logger.warn(`Click Webhook Error: ACTION NOT FOUND - Action received: ${action}`);
-            return { error: -3, error_note: 'ACTION NOT FOUND' };
-
         } catch (e) {
             this.logger.error('Click Webhook Failed', e);
             return { error: -8, error_note: 'UNKNOWN ERROR' };
         }
+    }
+
+    private checkSignature(data: any, isComplete: boolean): boolean {
+        const { click_trans_id, service_id, merchant_trans_id, amount, action, sign_time, sign_string, merchant_prepare_id } = data;
+        const { SECRET_KEY } = this.ENV;
+        const payload = `${click_trans_id}${service_id}${SECRET_KEY}${merchant_trans_id}${isComplete ? merchant_prepare_id : ''}${amount}${action}${sign_time}`;
+        const md5Hash = crypto.createHash('md5').update(payload).digest('hex');
+
+        if (md5Hash !== sign_string) {
+            this.logger.error('Invalid signature from Click', { expected: md5Hash, received: sign_string });
+            return false;
+        }
+        return true;
+    }
+
+    // PREPARE (Action = 0)
+    async prepare(data: any) {
+        const { click_trans_id, merchant_trans_id, amount, sign_time } = data;
+
+        if (!this.checkSignature(data, false)) {
+            return { error: -1, error_note: 'SIGN CHECK FAILED' };
+        }
+
+        if (!merchant_trans_id || merchant_trans_id.toString().trim() === '') {
+            this.logger.log('Click AutoPay webhook PREPARE without merchant_trans_id received. Returning error: 0 to let Token Payment proceed.');
+            return {
+                click_trans_id: Number(click_trans_id),
+                merchant_trans_id: merchant_trans_id || "",
+                merchant_prepare_id: 0,
+                error: 0,
+                error_note: 'Success',
+            };
+        }
+
+        const walletTxId = parseInt(merchant_trans_id);
+        if (isNaN(walletTxId)) {
+            this.logger.warn(`Click Prepare Error: INVALID MERCHANT TRANS ID (NaN) - received: ${merchant_trans_id}`);
+            return { error: -5, error_note: 'INVALID MERCHANT TRANS ID' };
+        }
+
+        const walletTx = await this.prisma.walletTransaction.findUnique({ where: { id: walletTxId } });
+        if (!walletTx) {
+            this.logger.warn(`Click Prepare Error: TRANSACTION NOT FOUND - ID: ${walletTxId}`);
+            return { error: -5, error_note: 'TRANSACTION NOT FOUND' };
+        }
+
+        const dbAmount = parseFloat(walletTx.amount.toString());
+        const clickAmount = parseFloat(amount);
+        const isExactMatch = Math.abs(dbAmount - clickAmount) < 0.01;
+        const isCommissionMatch = Math.abs((dbAmount * 1.01) - clickAmount) < 0.01;
+
+        if (!isExactMatch && !isCommissionMatch) {
+            this.logger.warn(`Click Prepare Error: INCORRECT AMOUNT - Expected: ${dbAmount} or ${dbAmount * 1.01}, Received: ${clickAmount} UZS`);
+            return { error: -2, error_note: 'INCORRECT AMOUNT' };
+        }
+
+        if (walletTx.status !== 'PENDING') {
+            this.logger.warn(`Click Prepare Error: ALREADY PAID OR CANCELLED - Tx Status: ${walletTx.status}`);
+            return { error: -4, error_note: 'ALREADY PAID OR CANCELLED' };
+        }
+
+        await this.prisma.clickTransaction.upsert({
+            where: { clickTransId: BigInt(click_trans_id) },
+            update: {},
+            create: {
+                clickTransId: BigInt(click_trans_id),
+                merchantTransId: merchant_trans_id,
+                amount,
+                status: 0,
+                signTime: sign_time,
+            },
+        });
+
+        return {
+            click_trans_id: Number(click_trans_id),
+            merchant_trans_id: String(merchant_trans_id),
+            merchant_prepare_id: Number(walletTxId),
+            error: 0,
+            error_note: 'Success',
+        };
+    }
+
+    // COMPLETE (Action = 1)
+    async complete(data: any) {
+        const { click_trans_id, merchant_trans_id, amount, error, error_note } = data;
+
+        if (!this.checkSignature(data, true)) {
+            return { error: -1, error_note: 'SIGN CHECK FAILED' };
+        }
+
+        if (!merchant_trans_id || merchant_trans_id.toString().trim() === '') {
+            this.logger.log('Click AutoPay webhook COMPLETE without merchant_trans_id received. Returning error: 0 to let Token Payment proceed.');
+            return {
+                click_trans_id: Number(click_trans_id),
+                merchant_trans_id: merchant_trans_id || "",
+                merchant_confirm_id: 0,
+                error: 0,
+                error_note: 'Success',
+            };
+        }
+
+        const walletTxId = parseInt(merchant_trans_id);
+        if (isNaN(walletTxId)) {
+            this.logger.warn(`Click Complete Error: INVALID MERCHANT TRANS ID (NaN) - received: ${merchant_trans_id}`);
+            return { error: -5, error_note: 'INVALID MERCHANT TRANS ID' };
+        }
+
+        const walletTx = await this.prisma.walletTransaction.findUnique({ where: { id: walletTxId }, include: { wallet: true } });
+        if (!walletTx) {
+            this.logger.warn(`Click Complete Error: TRANSACTION NOT FOUND - ID: ${walletTxId}`);
+            return { error: -5, error_note: 'TRANSACTION NOT FOUND' };
+        }
+
+        const dbAmount = parseFloat(walletTx.amount.toString());
+        const clickAmount = parseFloat(amount);
+        const isExactMatch = Math.abs(dbAmount - clickAmount) < 0.01;
+        const isCommissionMatch = Math.abs((dbAmount * 1.01) - clickAmount) < 0.01;
+
+        if (!isExactMatch && !isCommissionMatch) {
+            this.logger.warn(`Click Complete Error: INCORRECT AMOUNT - Expected: ${dbAmount} or ${dbAmount * 1.01}, Received: ${clickAmount} UZS`);
+            return { error: -2, error_note: 'INCORRECT AMOUNT' };
+        }
+
+        if (walletTx.status === 'SUCCESS') {
+            this.logger.warn(`Click Complete Error: ALREADY PAID - Tx Status is SUCCESS`);
+            return { error: -4, error_note: 'ALREADY PAID' };
+        }
+
+        if (parseInt(error) < 0) {
+            this.logger.warn(`Click Complete Error: TRANSACTION CANCELLED BY CLICK - Click error code: ${error}, note: ${error_note}`);
+            await this.prisma.walletTransaction.update({
+                where: { id: walletTxId },
+                data: { status: 'FAILED' },
+            });
+            await this.prisma.clickTransaction.update({
+                where: { clickTransId: BigInt(click_trans_id) },
+                data: { status: -1 },
+            });
+            return { error: -9, error_note: 'TRANSACTION CANCELLED' };
+        }
+
+        // Apply payment
+        await this.prisma.$transaction(async (tx) => {
+            await tx.walletTransaction.update({
+                where: { id: walletTxId },
+                data: { status: 'SUCCESS' },
+            });
+
+            await tx.wallet.update({
+                where: { id: walletTx.walletId },
+                data: { balance: { increment: walletTx.amount } },
+            });
+
+            await tx.clickTransaction.upsert({
+                where: { clickTransId: BigInt(click_trans_id) },
+                update: { status: 1 },
+                create: {
+                    clickTransId: BigInt(click_trans_id),
+                    merchantTransId: merchant_trans_id,
+                    amount,
+                    status: 1,
+                    signTime: new Date().toISOString()
+                }
+            });
+        });
+
+        return {
+            click_trans_id: Number(click_trans_id),
+            merchant_trans_id: String(merchant_trans_id),
+            merchant_confirm_id: Number(walletTxId),
+            error: 0,
+            error_note: 'Success',
+        };
     }
 
     // Auth Header Generator for Click V2 API
@@ -422,7 +458,7 @@ export class ClickService {
                     method: 'DELETE',
                     headers,
                 });
-                
+
                 const data = await res.json() as any;
 
                 if (data.error_code !== 0) {
