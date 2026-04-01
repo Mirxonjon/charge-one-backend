@@ -67,53 +67,62 @@ export class ClickService {
 
     // PREPARE (Action = 0)
     async prepare(data: any) {
-        this.logger.log(`Click PREPARE Webhook Received: ${JSON.stringify(data)}`);
+        this.logger.log(`[PREPARE] Step 1: Webhook qabul qilindi. Data: ${JSON.stringify(data)}`);
         const { click_trans_id, merchant_trans_id, amount, sign_time } = data;
 
+        this.logger.log(`[PREPARE] Step 2: MD5 Signature tekshirilmoqda...`);
         if (!this.checkSignature(data, false)) {
             return { error: -1, error_note: 'SIGN CHECK FAILED' };
         }
+        this.logger.log(`[PREPARE] Step 2: ✅ Signature muvaffaqiyatli tasdiqlandi.`);
 
         if (!merchant_trans_id || merchant_trans_id.toString().trim() === '') {
-            this.logger.log('Click AutoPay webhook PREPARE without merchant_trans_id received. Returning error: 0 to let Token Payment proceed.');
-            const time = new Date().getTime()
-            return [{
+            this.logger.log('[PREPARE] Step 3: AutoPay - merchant_trans_id bo`sh keldi. Token to`lov uchun ruxsat berildi.');
+            return {
                 click_trans_id: Number(click_trans_id),
                 merchant_trans_id: merchant_trans_id || "",
-                // merchant_prepare_id: time,
-                merchant_prepare_id: merchant_trans_id,
+                merchant_prepare_id: 0,
                 error: 0,
                 error_note: 'Success',
-            }];
+            };
         }
 
+        this.logger.log(`[PREPARE] Step 3: merchant_trans_id tekshirilmoqda: "${merchant_trans_id}"`);
         const walletTxId = parseInt(merchant_trans_id);
         if (isNaN(walletTxId)) {
-            this.logger.warn(`Click Prepare Error: INVALID MERCHANT TRANS ID (NaN) - received: ${merchant_trans_id}`);
+            this.logger.warn(`[PREPARE] Step 3: ❌ INVALID MERCHANT TRANS ID (NaN) - received: ${merchant_trans_id}`);
             return { error: -5, error_note: 'INVALID MERCHANT TRANS ID' };
         }
+        this.logger.log(`[PREPARE] Step 3: ✅ merchant_trans_id raqam: ${walletTxId}`);
 
+        this.logger.log(`[PREPARE] Step 4: WalletTransaction bazadan qidirilmoqda (ID: ${walletTxId})...`);
         const walletTx = await this.prisma.walletTransaction.findUnique({ where: { id: walletTxId } });
         if (!walletTx) {
-            this.logger.warn(`Click Prepare Error: TRANSACTION NOT FOUND - ID: ${walletTxId}`);
+            this.logger.warn(`[PREPARE] Step 4: ❌ TRANSACTION NOT FOUND - ID: ${walletTxId}`);
             return { error: -5, error_note: 'TRANSACTION NOT FOUND' };
         }
+        this.logger.log(`[PREPARE] Step 4: ✅ Tranzaksiya topildi. Status: ${walletTx.status}, Amount: ${walletTx.amount}`);
 
+        this.logger.log(`[PREPARE] Step 5: Summa tekshirilmoqda. DB: ${walletTx.amount}, Click: ${amount}`);
         const dbAmount = parseFloat(walletTx.amount.toString());
         const clickAmount = parseFloat(amount);
         const isExactMatch = Math.abs(dbAmount - clickAmount) < 0.01;
         const isCommissionMatch = Math.abs((dbAmount * 1.01) - clickAmount) < 0.01;
 
         if (!isExactMatch && !isCommissionMatch) {
-            this.logger.warn(`Click Prepare Error: INCORRECT AMOUNT - Expected: ${dbAmount} or ${dbAmount * 1.01}, Received: ${clickAmount} UZS`);
+            this.logger.warn(`[PREPARE] Step 5: ❌ INCORRECT AMOUNT - Kutilgan: ${dbAmount} yoki ${(dbAmount * 1.01).toFixed(2)}, Keldi: ${clickAmount} UZS`);
             return { error: -2, error_note: 'INCORRECT AMOUNT' };
         }
+        this.logger.log(`[PREPARE] Step 5: ✅ Summa to'g'ri (exactMatch: ${isExactMatch}, commissionMatch: ${isCommissionMatch})`);
 
+        this.logger.log(`[PREPARE] Step 6: Tranzaksiya holati tekshirilmoqda: "${walletTx.status}"`);
         if (walletTx.status !== 'PENDING') {
-            this.logger.warn(`Click Prepare Error: ALREADY PAID OR CANCELLED - Tx Status: ${walletTx.status}`);
+            this.logger.warn(`[PREPARE] Step 6: ❌ ALREADY PAID OR CANCELLED - Tx Status: ${walletTx.status}`);
             return { error: -4, error_note: 'ALREADY PAID OR CANCELLED' };
         }
+        this.logger.log(`[PREPARE] Step 6: ✅ Tranzaksiya PENDING holatida, davom etiladi.`);
 
+        this.logger.log(`[PREPARE] Step 7: ClickTransaction bazaga yozilmoqda (clickTransId: ${click_trans_id})...`);
         await this.prisma.clickTransaction.upsert({
             where: { clickTransId: BigInt(click_trans_id) },
             update: {},
@@ -125,14 +134,16 @@ export class ClickService {
                 signTime: sign_time,
             },
         });
+        this.logger.log(`[PREPARE] Step 7: ✅ ClickTransaction bazaga yozildi.`);
 
-        return [{
+        this.logger.log(`[PREPARE] ✅ PREPARE MUVAFFAQIYATLI YAKUNLANDI! merchant_prepare_id: ${walletTxId}`);
+        return {
             click_trans_id: Number(click_trans_id),
             merchant_trans_id: String(merchant_trans_id),
             merchant_prepare_id: Number(walletTxId),
             error: 0,
             error_note: 'Success',
-        }];
+        };
     }
 
     // COMPLETE (Action = 1)
