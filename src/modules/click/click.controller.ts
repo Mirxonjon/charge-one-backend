@@ -20,17 +20,38 @@ export class ClickController {
         return this.clickService.generateInvoiceUrl(userId, dto.amount);
     }
 
-    // Click Webhook (Public, secured by Click MD5 signature)
-    @Post('callback')
+    // Click Webhook: PREPARE
+    @Post('prepare')
     @HttpCode(HttpStatus.OK)
-    @ApiOperation({ summary: 'Click Webhook for Prepare/Complete actions' })
+    @ApiOperation({ summary: 'Click Webhook for Prepare action' })
     @ApiHeader({ name: 'click_sign_string', description: 'MD5 hash from Click' })
-    async clickCallback(@Body() body: any) {
-        const result = await this.clickService.handleCallback(body);
-        console.log('================ CLICK CALLBACK RESPONSE ================');
-        console.log(result);
-        console.log('=========================================================');
-        return result;
+    async clickPrepare(@Body() body: any) {
+        try {
+            const result = await this.clickService.prepare(body);
+            console.log('================ CLICK PREPARE RESPONSE ================');
+            console.log(result);
+            console.log('========================================================');
+            return result;
+        } catch (e) {
+            return { error: -8, error_note: 'UNKNOWN ERROR' };
+        }
+    }
+
+    // Click Webhook: COMPLETE
+    @Post('complete')
+    @HttpCode(HttpStatus.OK)
+    @ApiOperation({ summary: 'Click Webhook for Complete action' })
+    @ApiHeader({ name: 'click_sign_string', description: 'MD5 hash from Click' })
+    async clickComplete(@Body() body: any) {
+        try {
+            const result = await this.clickService.complete(body);
+            console.log('================ CLICK COMPLETE RESPONSE ================');
+            console.log(result);
+            console.log('=========================================================');
+            return result;
+        } catch (e) {
+            return { error: -8, error_note: 'UNKNOWN ERROR' };
+        }
     }
 
     @Get('cards')

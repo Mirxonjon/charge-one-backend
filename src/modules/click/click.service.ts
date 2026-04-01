@@ -50,25 +50,7 @@ export class ClickService {
         return { success: true, url, transactionId: tx.id };
     }
 
-    // 2. WEBHOOK CALLBACK ROUTER
-    async handleCallback(data: any) {
-        try {
-            this.logger.log(`Click Callback Received [Action: ${data.action}]: ${JSON.stringify(data)}`);
-
-            const action = parseInt(data.action);
-            if (action === 0) {
-                return await this.prepare(data);
-            } else if (action === 1) {
-                return await this.complete(data);
-            } else {
-                this.logger.warn(`Click Webhook Error: ACTION NOT FOUND - Action received: ${data.action}`);
-                return { error: -3, error_note: 'ACTION NOT FOUND' };
-            }
-        } catch (e) {
-            this.logger.error('Click Webhook Failed', e);
-            return { error: -8, error_note: 'UNKNOWN ERROR' };
-        }
-    }
+    // Click Service logic
 
     private checkSignature(data: any, isComplete: boolean): boolean {
         const { click_trans_id, service_id, merchant_trans_id, amount, action, sign_time, sign_string, merchant_prepare_id } = data;
@@ -85,6 +67,7 @@ export class ClickService {
 
     // PREPARE (Action = 0)
     async prepare(data: any) {
+        this.logger.log(`Click PREPARE Webhook Received: ${JSON.stringify(data)}`);
         const { click_trans_id, merchant_trans_id, amount, sign_time } = data;
 
         if (!this.checkSignature(data, false)) {
@@ -152,6 +135,7 @@ export class ClickService {
 
     // COMPLETE (Action = 1)
     async complete(data: any) {
+        this.logger.log(`Click COMPLETE Webhook Received: ${JSON.stringify(data)}`);
         const { click_trans_id, merchant_trans_id, amount, error, error_note } = data;
 
         if (!this.checkSignature(data, true)) {
