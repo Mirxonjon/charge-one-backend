@@ -81,6 +81,18 @@ export class ClickService {
                 return { error: -1, error_note: 'SIGN CHECK FAILED' };
             }
 
+            if (!merchant_trans_id || merchant_trans_id.trim() === '') {
+                this.logger.log('Click AutoPay webhook without merchant_trans_id received. Returning error: 0 to let Token Payment proceed.');
+                return {
+                    click_trans_id: Number(click_trans_id),
+                    merchant_trans_id: merchant_trans_id || "",
+                    merchant_prepare_id: 0,
+                    merchant_confirm_id: 0,
+                    error: 0,
+                    error_note: 'Success',
+                };
+            }
+
             // Check transaction existence in our DB
             const walletTxId = parseInt(merchant_trans_id);
             if (isNaN(walletTxId)) {
@@ -98,7 +110,7 @@ export class ClickService {
             }
             const dbAmount = parseFloat(walletTx.amount.toString());
             const clickAmount = parseFloat(amount);
-            
+
             // Allow exact match or with 1% commission added by Click
             const isExactMatch = Math.abs(dbAmount - clickAmount) < 0.01;
             const isCommissionMatch = Math.abs((dbAmount * 1.01) - clickAmount) < 0.01;
@@ -331,7 +343,7 @@ export class ClickService {
             service_id: parseInt(SERVICE_ID),
             card_token: savedCard.cardToken, // resolved from DB by cardId — never from frontend
             amount: amount,
-            transaction_param: tx.id.toString(),
+            transaction_parameter: tx.id.toString(),
         };
 
         try {
