@@ -96,6 +96,7 @@ export class ClickService {
             // Check transaction existence in our DB
             const walletTxId = parseInt(merchant_trans_id);
             if (isNaN(walletTxId)) {
+                this.logger.warn(`Click Webhook Error: INVALID MERCHANT TRANS ID (NaN) - received: ${merchant_trans_id}`);
                 return { error: -5, error_note: 'INVALID MERCHANT TRANS ID' };
             }
 
@@ -106,6 +107,7 @@ export class ClickService {
 
             // Validations
             if (!walletTx) {
+                this.logger.warn(`Click Webhook Error: TRANSACTION NOT FOUND - ID: ${walletTxId}`);
                 return { error: -5, error_note: 'TRANSACTION NOT FOUND' };
             }
             const dbAmount = parseFloat(walletTx.amount.toString());
@@ -116,12 +118,14 @@ export class ClickService {
             const isCommissionMatch = Math.abs((dbAmount * 1.01) - clickAmount) < 0.01;
 
             if (!isExactMatch && !isCommissionMatch) {
+                this.logger.warn(`Click Webhook Error: INCORRECT AMOUNT - Expected: ${dbAmount} or ${dbAmount * 1.01}, Received: ${clickAmount} UZS`);
                 return { error: -2, error_note: 'INCORRECT AMOUNT' };
             }
 
             // Action 0: PREPARE
             if (parseInt(action) === 0) {
                 if (walletTx.status !== 'PENDING') {
+                    this.logger.warn(`Click Webhook Error (Action 0): ALREADY PAID OR CANCELLED - Tx Status: ${walletTx.status}`);
                     return { error: -4, error_note: 'ALREADY PAID OR CANCELLED' };
                 }
 
@@ -150,9 +154,11 @@ export class ClickService {
             // Action 1: COMPLETE
             if (parseInt(action) === 1) {
                 if (walletTx.status === 'SUCCESS') {
+                    this.logger.warn(`Click Webhook Error (Action 1): ALREADY PAID - Tx Status is SUCCESS`);
                     return { error: -4, error_note: 'ALREADY PAID' };
                 }
                 if (parseInt(error) < 0) {
+                    this.logger.warn(`Click Webhook Error (Action 1): TRANSACTION CANCELLED BY CLICK - Click error code: ${error}, note: ${error_note}`);
                     // Transaction cancelled by Click
                     await this.prisma.walletTransaction.update({
                         where: { id: walletTxId },
@@ -192,6 +198,7 @@ export class ClickService {
                 };
             }
 
+            this.logger.warn(`Click Webhook Error: ACTION NOT FOUND - Action received: ${action}`);
             return { error: -3, error_note: 'ACTION NOT FOUND' };
 
         } catch (e) {
@@ -355,6 +362,10 @@ export class ClickService {
                 body: JSON.stringify(payload),
             });
             const data = await res.json() as any;
+
+            console.log('================ CLICK PAY WITH TOKEN RESPONSE ================');
+            console.log(data);
+            console.log('=========================================================');
 
             if (data.error_code !== 0) {
                 await this.prisma.walletTransaction.update({
