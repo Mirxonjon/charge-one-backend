@@ -77,14 +77,14 @@ export class ClickService {
         if (!merchant_trans_id || merchant_trans_id.toString().trim() === '') {
             this.logger.log('Click AutoPay webhook PREPARE without merchant_trans_id received. Returning error: 0 to let Token Payment proceed.');
             const time = new Date().getTime()
-            return {
+            return [{
                 click_trans_id: Number(click_trans_id),
                 merchant_trans_id: merchant_trans_id || "",
                 // merchant_prepare_id: time,
                 merchant_prepare_id: merchant_trans_id,
                 error: 0,
                 error_note: 'Success',
-            };
+            }];
         }
 
         const walletTxId = parseInt(merchant_trans_id);
