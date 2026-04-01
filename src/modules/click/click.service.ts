@@ -411,9 +411,31 @@ export class ClickService {
             throw new BadRequestException('Card not found or access denied');
         }
 
-        await this.prisma.savedCard.delete({ where: { id: cardId } });
+        const { SERVICE_ID } = this.ENV;
 
-        return { success: true, message: 'Card deleted successfully' };
+        try {
+            if (savedCard.cardToken) {
+                const headers = this.getAuthHeaders();
+                this.logger.log(`[CLICK API REQUEST]: DELETE ${this.CLICK_API_URL}/${SERVICE_ID}/${savedCard.cardToken} | Headers: ${JSON.stringify(headers)}`);
+
+                const res = await fetch(`${this.CLICK_API_URL}/${SERVICE_ID}/${savedCard.cardToken}`, {
+                    method: 'DELETE',
+                    headers,
+                });
+                
+                const data = await res.json() as any;
+
+                if (data.error_code !== 0) {
+                    throw new BadRequestException(data.error_note || 'Click tizimidan kartani o`chirishda xatolik yuz berdi');
+                }
+            }
+
+            await this.prisma.savedCard.delete({ where: { id: cardId } });
+            return { success: true, message: 'Card deleted successfully' };
+        } catch (e) {
+            this.logger.error('Click Delete Card Error', e);
+            throw new HttpException(e.message, HttpStatus.BAD_REQUEST);
+        }
     }
 
     private maskCard(cardNumber: string) {
