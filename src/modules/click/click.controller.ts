@@ -44,15 +44,17 @@ export class ClickController {
     @HttpCode(HttpStatus.OK)
     @ApiOperation({ summary: 'Click Webhook for Complete action' })
     @ApiHeader({ name: 'click_sign_string', description: 'MD5 hash from Click' })
-    async clickComplete(@Body() body: any) {
+    async clickComplete(@Body() body: any, @Res() res: Response) {
         try {
             const result = await this.clickService.complete(body);
             console.log('================ CLICK COMPLETE RESPONSE ================');
             console.log(result);
             console.log('=========================================================');
-            return result;
+            res.set('Content-Type', 'application/x-www-form-urlencoded; charset=UTF-8')
+                .send(result);
         } catch (e) {
-            return { error: -8, error_note: 'UNKNOWN ERROR' };
+            res.set('Content-Type', 'application/x-www-form-urlencoded; charset=UTF-8')
+                .send({ error: -8, error_note: 'UNKNOWN ERROR' });
         }
     }
 
