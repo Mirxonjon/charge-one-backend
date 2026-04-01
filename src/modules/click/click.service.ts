@@ -126,13 +126,13 @@ export class ClickService {
             },
         });
 
-        return {
+        return [{
             click_trans_id: Number(click_trans_id),
             merchant_trans_id: String(merchant_trans_id),
             merchant_prepare_id: Number(walletTxId),
             error: 0,
             error_note: 'Success',
-        };
+        }];
     }
 
     // COMPLETE (Action = 1)
