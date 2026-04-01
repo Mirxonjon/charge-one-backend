@@ -139,7 +139,7 @@ export class ClickService {
         this.logger.log(`[PREPARE] ✅ PREPARE MUVAFFAQIYATLI YAKUNLANDI! merchant_prepare_id: ${walletTxId}`);
         return {
             click_trans_id: Number(click_trans_id),
-            merchant_trans_id: String(merchant_trans_id),
+            merchant_trans_id: Number(merchant_trans_id),
             merchant_prepare_id: Number(walletTxId),
             error: 0,
             error_note: 'Success',
