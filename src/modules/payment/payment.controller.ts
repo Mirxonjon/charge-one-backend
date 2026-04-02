@@ -10,10 +10,10 @@ import { PaymentFiltersDto } from '@/types/payments/payment-filters.dto';
 @ApiTags('Payments')
 @ApiBearerAuth()
 @UseGuards(JwtAuthGuard, RolesGuard)
-@Roles('ADMIN')
+// @Roles('ADMIN')
 @Controller('payments')
 export class PaymentController {
-  constructor(private readonly service: PaymentService) {}
+  constructor(private readonly service: PaymentService) { }
 
   @Post()
   @HttpCode(HttpStatus.CREATED)
