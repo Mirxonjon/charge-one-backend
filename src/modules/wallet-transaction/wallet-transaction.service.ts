@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
 import { Prisma, TransactionType } from '@prisma/client';
 import { PrismaService } from '@/modules/prisma/prisma.service';
 import { TransactionFiltersDto } from '@/types/transactions/transaction-filters.dto';
@@ -15,6 +15,26 @@ export class WalletTransactionService {
 
   async adminList(filters: TransactionFiltersDto) {
     return this.listInternal(filters);
+  }
+
+  async findOne(id: number, userId: number) {
+    const transaction = await this.prisma.walletTransaction.findUnique({
+      where: { id },
+      include: { wallet: true },
+    });
+
+    if (!transaction) throw new NotFoundException('Transaction not found');
+
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      include: { role: true },
+    });
+
+    if (user.role.name !== 'ADMIN' && transaction.wallet.userId !== userId) {
+      throw new ForbiddenException('No access to this transaction');
+    }
+
+    return transaction;
   }
 
   private async listInternal(filters: TransactionFiltersDto & { walletId?: number }) {

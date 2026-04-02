@@ -1,4 +1,4 @@
-import { Controller, Get, Query, Req, UseGuards } from '@nestjs/common';
+import { Controller, Get, Param, ParseIntPipe, Query, Req, UseGuards } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiQuery, ApiTags } from '@nestjs/swagger';
 import { WalletTransactionService } from './wallet-transaction.service';
 import { JwtAuthGuard } from '@/modules/auth/guards/jwt-auth.guard';
@@ -38,5 +38,12 @@ export class WalletTransactionController {
   @ApiQuery({ name: 'walletId', required: false })
   admin(@Query() query: TransactionFiltersDto) {
     return this.service.adminList(query);
+  }
+
+  @Get(':id')
+  @ApiOperation({ summary: 'Get wallet transaction by id' })
+  findOne(@Req() req: Request, @Param('id', ParseIntPipe) id: number) {
+    const userId = (req as any).user.sub as number;
+    return this.service.findOne(id, userId);
   }
 }
