@@ -4,6 +4,8 @@ import { CreateConnectorDto } from '@/types/connector/create-connector.dto';
 import { UpdateConnectorDto } from '@/types/connector/update-connector.dto';
 import { FilterConnectorDto } from '@/types/connector/filter-connector.dto';
 import { ConnectorStatus } from '@prisma/client';
+import { randomUUID } from 'crypto';
+import * as QRCode from 'qrcode';
 
 @Injectable()
 export class ConnectorService {
@@ -49,6 +51,45 @@ export class ConnectorService {
     const data: any = { ...rest };
     if (type_id !== undefined) data.typeId = type_id;
     return this.prisma.connector.update({ where: { id }, data });
+  }
+
+  async generateQrCode(id: number) {
+    const item = await this.findOne(id);
+    // @ts-ignore
+    if (item.qrCode) return item;
+
+    const qrCode = randomUUID();
+    return this.prisma.connector.update({
+      where: { id },
+      // @ts-ignore
+      data: { qrCode },
+    });
+  }
+
+  async getQrCodeBuffer(id: number): Promise<Buffer> {
+    const item = await this.generateQrCode(id);
+    // @ts-ignore
+    const qrText = item.qrCode;
+    return QRCode.toBuffer(qrText);
+  }
+
+  async findByQrCode(qrCode: string) {
+    const item = await this.prisma.connector.findUnique({
+      // @ts-ignore
+      where: { qrCode },
+      include: {
+        station: {
+          include: {
+            operator: true,
+            pricing: true,
+          },
+        },
+        connectorType: true,
+      },
+    });
+
+    if (!item) throw new NotFoundException('Connector not found for this QR code');
+    return item;
   }
 
   async remove(id: number) {

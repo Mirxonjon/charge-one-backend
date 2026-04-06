@@ -235,6 +235,7 @@ model Connector {
   pricePerKwh     Float?
   // OCPP connector number (matches connectorId in OCPP messages, e.g. 1, 2, ...)
   connectorNumber Int                  @default(1)
+  qrCode          String?              @unique
   sessions        ChargingSession[]
   statusLogs      ConnectorStatusLog[]
   createdAt       DateTime             @default(now())

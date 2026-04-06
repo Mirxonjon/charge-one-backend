@@ -1,4 +1,5 @@
-import { Body, Controller, Delete, Get, HttpCode, HttpStatus, Param, ParseIntPipe, Patch, Post, Query, UseGuards } from '@nestjs/common';
+import { Body, Controller, Delete, Get, HttpCode, HttpStatus, Param, ParseIntPipe, Patch, Post, Query, Res, UseGuards } from '@nestjs/common';
+import { Response } from 'express';
 import { ApiBearerAuth, ApiBody, ApiOperation, ApiQuery, ApiResponse, ApiTags } from '@nestjs/swagger';
 import { ConnectorService } from './connector.service';
 import { JwtAuthGuard } from '@/modules/auth/guards/jwt-auth.guard';
@@ -48,6 +49,28 @@ export class ConnectorController {
   @ApiOperation({ summary: 'Update connector (ADMIN)' })
   update(@Param('id', ParseIntPipe) id: number, @Body() dto: UpdateConnectorDto) {
     return this.service.update(id, dto);
+  }
+
+  @Post(':id/qr')
+  @Roles('ADMIN')
+  @ApiOperation({ summary: 'Generate or get QR code for connector (ADMIN)' })
+  generateQrCode(@Param('id', ParseIntPipe) id: number) {
+    return this.service.generateQrCode(id);
+  }
+
+  @Get(':id/qr/download')
+  @ApiOperation({ summary: 'Download QR code for connector as PNG (ADMIN)' })
+  async downloadQrCode(@Param('id', ParseIntPipe) id: number, @Res() res: Response) {
+    const buffer = await this.service.getQrCodeBuffer(id);
+    res.setHeader('Content-Type', 'image/png');
+    res.setHeader('Content-Disposition', `attachment; filename="qr-code-${id}.png"`);
+    res.send(buffer);
+  }
+
+  @Get('by-qr/:qrCode')
+  @ApiOperation({ summary: 'Get station and connector info by QR code' })
+  findByQrCode(@Param('qrCode') qrCode: string) {
+    return this.service.findByQrCode(qrCode);
   }
 
   @Delete(':id')
